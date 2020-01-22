@@ -34,7 +34,7 @@
 ;; - Put the API token into `acrolinx-mode-api-token' or use
 ;;   emacs' auth-source library and put the token e.g. into ~/.netrc.
 ;; - Load and evaluate acrolinx-mode.el
-;; - Call `acrolinx-mode-check-string' with a string you want to check.
+;; - Call `acrolinx-mode-check' in a buffer with some text you want to check.
 ;; - The check results/flags will pop out in a dedicated buffer.
 
 
@@ -142,42 +142,49 @@ we call `auth-source-search' to get an API token using
 
 
 ;;;- checking workflow ----------------------------------------------------
-(defun acrolinx-mode-check-string (str)
-  "Check the contents of STR with Acrolinx.
+(defun acrolinx-mode-check ()
+  "Check the contents of the current buffer with Acrolinx.
 
-This sends STR to `acrolinx-mode-server-url' and installs
-callbacks that handle the responses when they arrive later from
-the server. The resulting scorecards will be shown in a separate
-buffer (called `acrolinx-mode-scorecard-buffer-name')."
+This sends the buffer content to `acrolinx-mode-server-url' and
+installs callbacks that handle the responses when they arrive
+later from the server. The resulting scorecards will be shown in
+a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
+  (interactive)
   (acrolinx-mode-url-retrieve
    (concat acrolinx-mode-server-url "/api/v1/checking/checks")
    #'acrolinx-mode-handle-check-string-response
-   nil
+   (list (current-buffer))
    "POST"
    '(("content-type" . "application/json"))
-   (concat "{\"content\":\"" str "\",
+   (concat "{\"content\":\""
+           (base64-encode-string
+            (buffer-substring-no-properties (point-min)
+                                            (point-max)) t) "\",
              \"checkOptions\":{\"contentFormat\":\"TEXT\"},
-                               \"contentEncoding\":\"none\"}")))
+                               \"contentEncoding\":\"base64\"}")))
 
-(defun acrolinx-mode-handle-check-string-response (status)
+(defun acrolinx-mode-handle-check-string-response (status src-buffer)
   (let ((check-result-url
          (gethash "result"
                   (gethash "links"
                            (acrolinx-mode-get-json-from-response)))))
     (sit-for acrolinx-mode-get-check-result-interval)
-    (acrolinx-mode-get-check-result check-result-url 1)))
+    (acrolinx-mode-get-check-result src-buffer check-result-url 1)))
 
-(defun acrolinx-mode-get-check-result (url attempt)
+(defun acrolinx-mode-get-check-result (src-buffer url attempt)
   (if (> attempt acrolinx-mode-get-check-result-max-tries)
       (error "No check result with %s after %d attempts"
              url acrolinx-mode-get-check-result-max-tries)
     (acrolinx-mode-url-retrieve
      url
      #'acrolinx-mode-handle-check-result-response
-     (list url attempt))))
+     (list src-buffer url attempt))))
 
-(defun acrolinx-mode-handle-check-result-response (status url attempt)
-  (let* ((buffer (get-buffer-create acrolinx-mode-scorecard-buffer-name))
+(defun acrolinx-mode-handle-check-result-response (status
+                                                   src-buffer url attempt)
+  ;; (message "%s" (buffer-string))
+  (let* ((scorecard-buffer
+          (get-buffer-create acrolinx-mode-scorecard-buffer-name))
          (json (acrolinx-mode-get-json-from-response))
          (data (gethash "data" json)))
     (if (null data)
@@ -191,28 +198,36 @@ buffer (called `acrolinx-mode-scorecard-buffer-name')."
                             (string-equal "SPELLING"
                                           (gethash "goalId" issue)))
                           issues)))
-        (switch-to-buffer-other-window buffer)
+        (switch-to-buffer-other-window scorecard-buffer)
         (acrolinx-mode-scorecard-mode)
         (setq buffer-read-only nil)
         (erase-buffer)
         (insert (format "Acrolinx Score: %d\n\n" score))
-        (acrolinx-mode-render-spelling-flags spelling-flags)
+        (acrolinx-mode-render-spelling-flags spelling-flags src-buffer)
         (acrolinx-mode-render-grammar-flags nil)
         (setq buffer-read-only t)))))
 
-(defun acrolinx-mode-render-spelling-flags (spelling-flags)
+(defun acrolinx-mode-render-spelling-flags (spelling-flags src-buffer)
   (insert "Spelling:\n")
   (dolist (flag spelling-flags)
-    (let* ((match (gethash "originalPart"
-                           (first
-                            (gethash "matches"
-                                     (gethash "positionalInformation" flag)))))
-           (spacer (make-string (length match) ? ))
+    (let* ((match (first
+                   (gethash "matches"
+                            (gethash "positionalInformation" flag))))
+           (match-text (gethash "originalPart" match))
+           (match-start (gethash "originalBegin" match))
+           (match-end (gethash "originalEnd" match))
+           (spacer (make-string (length match-text) ? ))
            (suggestions (mapcar
                          (lambda (suggestion)
                            (gethash "surface" suggestion))
-                         (gethash "suggestions" flag))))
-      (insert match)
+                         (gethash "suggestions" flag)))
+           (match-button-action (lambda (button)
+                                  (pop-to-buffer src-buffer)
+                                  (goto-char (+ 1 match-start)))))
+      (insert-button match-text
+                     'action match-button-action
+                     'follow-link match-button-action
+                     'help-echo "jump to source location")
       (when suggestions
         (insert " -> " (first suggestions) "\n")
         (dolist (suggestion (rest suggestions))

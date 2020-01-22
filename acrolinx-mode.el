@@ -39,12 +39,15 @@
 
 
 ;; TODOs
-;; - display all flags
-;; - link scorecard entries back to buffer
-;; - display goal colors
-;; - display score/statistics
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
+;; - link scorecard entries back to buffer
+;; - support checking a selection/region
+;; - acrolinx-mode-dwim: check buffer/region
+;; - display all flags
+;; - display score/statistics
 ;; - turn into minor mode
+;; - use customize
+;; - display goal colors
 
 
 ;;; Code:
@@ -171,6 +174,7 @@ buffer (called `acrolinx-mode-scorecard-buffer-name')."
                     (list url attempt)))))
 
 (defun acrolinx-mode-handle-check-result-response (status url attempt)
+  (message "%s" (buffer-string))
   (let ((json (acrolinx-mode-get-json-from-response)))
     (if (null (assoc 'data json))
         (progn
@@ -230,7 +234,6 @@ buffer (called `acrolinx-mode-scorecard-buffer-name')."
            (spacer (make-string (length match) ? ))
            (suggestions (dom-non-text-children
                          (xml-get-children flag 'suggestions))))
-      (message "%s" suggestions)
       (insert match)
       (when suggestions
          (insert " -> " (dom-text (pop suggestions)) "\n")

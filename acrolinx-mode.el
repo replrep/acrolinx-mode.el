@@ -39,6 +39,7 @@
 
 
 ;; TODOs
+;; - error handling!
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - link scorecard entries back to buffer
 ;; - support checking a selection/region
@@ -90,11 +91,10 @@ we call `auth-source-search' to get an API token using
 
 
 ;;;- dependencies ---------------------------------------------------------
+(require 'cl)
 (require 'auth-source)
 (require 'url)
 (require 'json)
-(require 'xml)
-(require 'dom)
 
 
 ;;;- utilities ------------------------------------------------------------
@@ -112,14 +112,28 @@ we call `auth-source-search' to get an API token using
             (funcall secret)
           secret))))
 
-(defun acrolinx-mode-goto-response-content ()
-  (decode-coding-region (point-min) (point-max) 'utf-8)
-  (goto-char (point-min))
-  (re-search-forward "^$" nil t))
+(defun acrolinx-mode-url-retrieve (url callback &optional
+                                   cbargs
+                                   request-method
+                                   extra-headers
+                                   data)
+  (let ((url-request-method (or request-method "GET"))
+        (url-request-extra-headers
+         (append
+          (list (cons "x-acrolinx-client" acrolinx-mode-x-client)
+                (cons "x-acrolinx-auth" (acrolinx-mode-get-x-auth)))
+          extra-headers))
+        (url-request-data (when (stringp data)
+                            (encode-coding-string data 'utf-8))))
+    (url-retrieve url callback cbargs)))
 
 (defun acrolinx-mode-get-json-from-response ()
-  (acrolinx-mode-goto-response-content)
-  (json-read-from-string (buffer-substring (point) (point-max))))
+  (decode-coding-region (point-min) (point-max) 'utf-8)
+  (goto-char (point-min))
+  (re-search-forward "^$" nil t) ;blank line separating headers from body
+  (let ((json-object-type 'hash-table)
+        (json-array-type 'list))
+    (json-read-from-string (buffer-substring (point) (point-max)))))
 
 
 (define-derived-mode acrolinx-mode-scorecard-mode special-mode
@@ -132,113 +146,77 @@ we call `auth-source-search' to get an API token using
   "Check the contents of STR with Acrolinx.
 
 This sends STR to `acrolinx-mode-server-url' and installs
-callbacks that handle the responses when they arrive from the
-server. The resulting scorecards will be shown in a separate
+callbacks that handle the responses when they arrive later from
+the server. The resulting scorecards will be shown in a separate
 buffer (called `acrolinx-mode-scorecard-buffer-name')."
-  (let ((url (concat acrolinx-mode-server-url "/api/v1/checking/checks"))
-        (url-request-method "POST")
-        (url-request-extra-headers
-         (list (cons "x-acrolinx-client" acrolinx-mode-x-client)
-               (cons "x-acrolinx-auth" (acrolinx-mode-get-x-auth))
-               (cons "content-type" "application/json")))
-        (url-request-data
-         (encode-coding-string
-          (format "{\"content\":\"%s\",
-                    \"checkOptions\":{\"contentFormat\":\"TEXT\"},
-                    \"contentEncoding\":\"none\"}"
-                  str)
-          'utf-8)))
-    (url-retrieve url #'acrolinx-mode-handle-check-string-response))
-  nil)
+  (acrolinx-mode-url-retrieve
+   (concat acrolinx-mode-server-url "/api/v1/checking/checks")
+   #'acrolinx-mode-handle-check-string-response
+   nil
+   "POST"
+   '(("content-type" . "application/json"))
+   (concat "{\"content\":\"" str "\",
+             \"checkOptions\":{\"contentFormat\":\"TEXT\"},
+                               \"contentEncoding\":\"none\"}")))
 
 (defun acrolinx-mode-handle-check-string-response (status)
   (let ((check-result-url
-         (cdr
-          (assoc 'result
-                 (assoc 'links
-                        (acrolinx-mode-get-json-from-response))))))
-    (message "check result url: %s" check-result-url)
+         (gethash "result"
+                  (gethash "links"
+                           (acrolinx-mode-get-json-from-response)))))
     (sit-for acrolinx-mode-get-check-result-interval)
     (acrolinx-mode-get-check-result check-result-url 1)))
 
 (defun acrolinx-mode-get-check-result (url attempt)
   (if (> attempt acrolinx-mode-get-check-result-max-tries)
-      (error "No check result at %s after %d attempts"
+      (error "No check result with %s after %d attempts"
              url acrolinx-mode-get-check-result-max-tries)
-    (let ((url-request-method "GET")
-          (url-request-extra-headers
-           (list (cons "x-acrolinx-client" acrolinx-mode-x-client)
-                 (cons "x-acrolinx-auth" (acrolinx-mode-get-x-auth)))))
-      (url-retrieve url
-                    #'acrolinx-mode-handle-check-result-response
-                    (list url attempt)))))
+    (acrolinx-mode-url-retrieve
+     url
+     #'acrolinx-mode-handle-check-result-response
+     (list url attempt))))
 
 (defun acrolinx-mode-handle-check-result-response (status url attempt)
-  (message "%s" (buffer-string))
-  (let ((json (acrolinx-mode-get-json-from-response)))
-    (if (null (assoc 'data json))
+  (let* ((buffer (get-buffer-create acrolinx-mode-scorecard-buffer-name))
+         (json (acrolinx-mode-get-json-from-response))
+         (data (gethash "data" json)))
+    (if (null data)
         (progn
           (sit-for acrolinx-mode-get-check-result-interval)
           (acrolinx-mode-get-check-result url (+ 1 attempt)))
-      (let* ((xml-scorecard-url
-              (concat
-               (cdr
-                (assoc 'link
-                       (assoc 'scorecard
-                              (assoc 'reports
-                                     (assoc 'data json)))))
-               "_report.xml"))
-             (url-request-method "GET")
-             (url-request-extra-headers
-              (list (cons "x-acrolinx-client" acrolinx-mode-x-client)
-                    (cons "x-acrolinx-auth" (acrolinx-mode-get-x-auth)))))
-        (message "scorecard url: %s" xml-scorecard-url)
-        (url-retrieve xml-scorecard-url
-                      #'acrolinx-mode-handle-xml-scorecard-response)))))
-
-(defun acrolinx-mode-handle-xml-scorecard-response (status)
-  (acrolinx-mode-goto-response-content)
-  ;; (message "%s" (buffer-string))
-  (let* ((buffer (get-buffer-create acrolinx-mode-scorecard-buffer-name))
-         (results
-          (car (xml-get-children
-                (car (xml-get-children
-                      (car (xml-parse-region (point-min) (point-max)))
-                      'body))
-                'results)))
-         (spelling-flags
-          (xml-get-children
-           (car (xml-get-children
-                 (car (xml-get-children results 'spelling))
-                 'listOfSpellingFlags))
-           'spellingFlag))
-         (grammar-flags
-          (xml-get-children
-           (car (xml-get-children
-                 (car (xml-get-children results 'grammar))
-                 'listOfLangFlags))
-           'langFlag)))
-    (switch-to-buffer-other-window buffer)
-    (acrolinx-mode-scorecard-mode)
-    (setq buffer-read-only nil)
-    (erase-buffer)
-    (insert "Acrolinx Scorecard:\n\n")
-    (acrolinx-mode-render-spelling-flags spelling-flags)
-    (acrolinx-mode-render-grammar-flags grammar-flags)
-    (setq buffer-read-only t)))
+      (let* ((score (gethash "score" (gethash "quality" data)))
+             (issues (gethash "issues" data))
+             (spelling-flags
+              (seq-filter (lambda (issue)
+                            (string-equal "SPELLING"
+                                          (gethash "goalId" issue)))
+                          issues)))
+        (switch-to-buffer-other-window buffer)
+        (acrolinx-mode-scorecard-mode)
+        (setq buffer-read-only nil)
+        (erase-buffer)
+        (insert (format "Acrolinx Score: %d\n\n" score))
+        (acrolinx-mode-render-spelling-flags spelling-flags)
+        (acrolinx-mode-render-grammar-flags nil)
+        (setq buffer-read-only t)))))
 
 (defun acrolinx-mode-render-spelling-flags (spelling-flags)
   (insert "Spelling:\n")
   (dolist (flag spelling-flags)
-    (let* ((match (dom-text (xml-get-children flag 'match)))
+    (let* ((match (gethash "originalPart"
+                           (first
+                            (gethash "matches"
+                                     (gethash "positionalInformation" flag)))))
            (spacer (make-string (length match) ? ))
-           (suggestions (dom-non-text-children
-                         (xml-get-children flag 'suggestions))))
+           (suggestions (mapcar
+                         (lambda (suggestion)
+                           (gethash "surface" suggestion))
+                         (gethash "suggestions" flag))))
       (insert match)
       (when suggestions
-         (insert " -> " (dom-text (pop suggestions)) "\n")
-         (dolist (suggestion suggestions)
-           (insert spacer " -> " (dom-text suggestion) "\n"))))
+        (insert " -> " (first suggestions) "\n")
+        (dolist (suggestion (rest suggestions))
+          (insert spacer " -> " suggestion "\n"))))
     (insert "\n")))
 
 (defun acrolinx-mode-render-grammar-flags (grammar-flags)

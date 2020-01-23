@@ -41,11 +41,10 @@
 ;; TODOs
 ;; - error handling!
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
-;; - link scorecard entries back to buffer
 ;; - support checking a selection/region
 ;; - acrolinx-mode-dwim: check buffer/region
 ;; - display all flags
-;; - display score/statistics
+;; - display statistics
 ;; - turn into minor mode
 ;; - use customize
 ;; - display goal colors
@@ -80,6 +79,10 @@ we call `auth-source-search' to get an API token using
 
 (defvar acrolinx-mode-flag-face 'match
   "Face used to highlight issues in the checked buffer text.")
+
+
+(defvar acrolinx-mode-handled-flag-face 'mode-line-inactive
+  "Face used to mark issues that have been handled.")
 
 
 (defvar acrolinx-mode-get-check-result-interval 1.5
@@ -237,23 +240,47 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
                          (lambda (suggestion)
                            (gethash "surface" suggestion))
                          (gethash "suggestions" flag)))
+           (overlay (make-overlay (+ 1 match-start)
+                                  (+ 1 match-end)
+                                  src-buffer))
            (match-button-action (lambda (button)
                                   (pop-to-buffer src-buffer)
-                                  (goto-char (+ 1 match-start)))))
+                                  (goto-char (overlay-start overlay)))))
+      (overlay-put overlay 'face acrolinx-mode-flag-face)
+      (push overlay acrolinx-mode-overlays)
+
       (insert-button match-text
                      'action match-button-action
                      'follow-link match-button-action
                      'help-echo "jump to source location")
-      (let ((overlay (make-overlay (+ 1 match-start)
-                                   (+ 1 match-end)
-                                   src-buffer)))
-        (overlay-put overlay 'face acrolinx-mode-flag-face)
-        (push overlay acrolinx-mode-overlays))
       (when suggestions
-        (insert " -> " (first suggestions) "\n")
+        (cl-flet ((create-suggestion-button-action (suggestion)
+                    (lambda (button)
+                      (let ((old-size (- (overlay-end overlay)
+                                         (overlay-start overlay))))
+                        (pop-to-buffer src-buffer)
+                        (goto-char (overlay-start overlay))
+                        (insert suggestion)
+                        (delete-char old-size)
+                        (overlay-put overlay 'face
+                                     acrolinx-mode-handled-flag-face)))))
+          (insert " -> ")
+          (insert-button (first suggestions)
+                         'action (create-suggestion-button-action
+                                  (first suggestions))
+                         'follow-link (create-suggestion-button-action
+                                       (first suggestions))
+                         'help-echo "replace text")
+          (insert "\n")
         (dolist (suggestion (rest suggestions))
-          (insert spacer " -> " suggestion "\n"))))
-    (insert "\n")))
+          (insert spacer " -> ")
+          (insert-button suggestion
+                         'action (create-suggestion-button-action suggestion)
+                         'follow-link (create-suggestion-button-action
+                                       suggestion)
+                         'help-echo "replace text")
+          (insert "\n"))))
+      (insert "\n"))))
 
 (defun acrolinx-mode-render-grammar-flags (grammar-flags)
   (insert "Grammar:\n")

@@ -78,6 +78,10 @@ we call `auth-source-search' to get an API token using
 `acrolinx-mode-server-url' as :host parameter.")
 
 
+(defvar acrolinx-mode-flag-face 'match
+  "Face used to highlight issues in the checked buffer text.")
+
+
 (defvar acrolinx-mode-get-check-result-interval 1.5
   "Interval in seconds between checking if a job has finished.")
 
@@ -135,10 +139,22 @@ we call `auth-source-search' to get an API token using
         (json-array-type 'list))
     (json-read-from-string (buffer-substring (point) (point-max)))))
 
+(defvar acrolinx-mode-scorecard-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q")
+      (lambda ()
+        (interactive)
+        (dolist (overlay acrolinx-mode-overlays)
+          (delete-overlay overlay))
+        (setq acrolinx-mode-overlays '())
+        (quit-window)))
+    map)
+  "Keymap used in the Acrolinx scorecard buffer.")
 
 (define-derived-mode acrolinx-mode-scorecard-mode special-mode
   "Acrolinx Scorecard"
-  "Major special mode for displaying Acrolinx scorecards.")
+  "Major special mode for displaying Acrolinx scorecards."
+  (defvar-local acrolinx-mode-overlays '()))
 
 
 ;;;- checking workflow ----------------------------------------------------
@@ -228,6 +244,11 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
                      'action match-button-action
                      'follow-link match-button-action
                      'help-echo "jump to source location")
+      (let ((overlay (make-overlay (+ 1 match-start)
+                                   (+ 1 match-end)
+                                   src-buffer)))
+        (overlay-put overlay 'face acrolinx-mode-flag-face)
+        (push overlay acrolinx-mode-overlays))
       (when suggestions
         (insert " -> " (first suggestions) "\n")
         (dolist (suggestion (rest suggestions))

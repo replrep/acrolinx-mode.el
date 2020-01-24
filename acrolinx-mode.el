@@ -32,7 +32,8 @@
 ;; - Get an API token from your Acrolinx server (see
 ;;   https://github.com/acrolinx/platform-api#getting-an-api-token)
 ;; - Put the API token into `acrolinx-mode-api-token' or use
-;;   emacs' auth-source library and put the token e.g. into ~/.netrc.
+;;   emacs' auth-source library and put the token e.g. into
+;;   ~/.netrc (possibly encrypted).
 ;; - Load and evaluate acrolinx-mode.el
 ;; - Call `acrolinx-mode-check' in a buffer with some text you want to check.
 ;; - The check results/flags will pop out in a dedicated buffer.
@@ -40,17 +41,29 @@
 
 ;; TODOs
 ;; - error handling!
+;; - check multibyte/utf-8 (possible base64 problem?)
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support checking a selection/region
 ;; - acrolinx-mode-dwim: check buffer/region
 ;; - display all flags
 ;; - display statistics
-;; - turn into minor mode
+;; - turn into minor mode?
 ;; - use customize
 ;; - display goal colors
+;; - add document reference (buffer-file-name?) in check request
+;; - add contentFormat in check request (markdown etc.)
+;; - key "g" -> refresh
+;; - improve sdk documentation?
+;; - ensure sane encoding (utf-8)
+;; - sidebar lookalike with speedbar-style attached frame?
 
 
 ;;; Code:
+
+
+(defvar acrolinx-mode-version "1.0.0"
+  "Version of acrolinx-mode.el.")
+
 
 ;;;- configuration --------------------------------------------------------
 (defvar acrolinx-mode-server-url nil
@@ -182,7 +195,8 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
              \"checkOptions\":{\"contentFormat\":\"TEXT\"},
                                \"contentEncoding\":\"base64\"}")))
 
-(defun acrolinx-mode-handle-check-string-response (status src-buffer)
+(defun acrolinx-mode-handle-check-string-response (status
+                                                   &optional src-buffer)
   (let ((check-result-url
          (gethash "result"
                   (gethash "links"
@@ -199,13 +213,16 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
      #'acrolinx-mode-handle-check-result-response
      (list src-buffer url attempt))))
 
+(defvar acrolinx-mode-last-check-result-response nil)
+
 (defun acrolinx-mode-handle-check-result-response (status
+                                                   &optional
                                                    src-buffer url attempt)
-  ;; (message "%s" (buffer-string))
   (let* ((scorecard-buffer
           (get-buffer-create acrolinx-mode-scorecard-buffer-name))
          (json (acrolinx-mode-get-json-from-response))
          (data (gethash "data" json)))
+    (setq acrolinx-mode-last-check-result-response json)
     (if (null data)
         (progn
           (sit-for acrolinx-mode-get-check-result-interval)

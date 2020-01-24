@@ -39,29 +39,31 @@
 ;; - The check results/flags will pop out in a dedicated buffer.
 
 
-;; TODOs
+;; TODOs before v1.0.0
 ;; - error handling!
-;; - check multibyte/utf-8 (possible base64 problem?)
+;; - display all flags
+;; - add document reference (buffer-file-name?) in check request
+;; - add contentFormat in check request (markdown etc.)
+
+
+;; TODOs
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support checking a selection/region
 ;; - acrolinx-mode-dwim: check buffer/region
-;; - display all flags
 ;; - display statistics
 ;; - turn into minor mode?
 ;; - use customize
 ;; - display goal colors
-;; - add document reference (buffer-file-name?) in check request
-;; - add contentFormat in check request (markdown etc.)
 ;; - key "g" -> refresh
 ;; - improve sdk documentation?
-;; - ensure sane encoding (utf-8)
 ;; - sidebar lookalike with speedbar-style attached frame?
+;; - support compile-next-error
 
 
 ;;; Code:
 
 
-(defvar acrolinx-mode-version "1.0.0"
+(defvar acrolinx-mode-version "0.8.0"
   "Version of acrolinx-mode.el.")
 
 
@@ -102,7 +104,7 @@ we call `auth-source-search' to get an API token using
   "Interval in seconds between checking if a job has finished.")
 
 
-(defvar acrolinx-mode-get-check-result-max-tries 5
+(defvar acrolinx-mode-get-check-result-max-tries 25
   "How many times to check if a job has finished before giving up.")
 
 
@@ -190,8 +192,13 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
    '(("content-type" . "application/json"))
    (concat "{\"content\":\""
            (base64-encode-string
-            (buffer-substring-no-properties (point-min)
-                                            (point-max)) t) "\",
+            (encode-coding-string
+             (encode-coding-string
+              (buffer-substring-no-properties (point-min)
+                                              (point-max))
+              'utf-8 t t)
+             'no-conversion t t)
+            t) "\",
              \"checkOptions\":{\"contentFormat\":\"TEXT\"},
                                \"contentEncoding\":\"base64\"}")))
 
@@ -226,7 +233,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
     (if (null data)
         (progn
           (sit-for acrolinx-mode-get-check-result-interval)
-          (acrolinx-mode-get-check-result url (+ 1 attempt)))
+          (acrolinx-mode-get-check-result src-buffer url (+ 1 attempt)))
       (let* ((score (gethash "score" (gethash "quality" data)))
              (issues (gethash "issues" data))
              (spelling-flags

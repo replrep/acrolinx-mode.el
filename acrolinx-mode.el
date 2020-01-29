@@ -58,6 +58,7 @@
 ;; - improve sdk documentation?
 ;; - sidebar lookalike with speedbar-style attached frame?
 ;; - support compile-next-error
+;; - Make guidance profiles configurable
 
 
 ;;; Code:

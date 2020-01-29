@@ -150,7 +150,10 @@ we call `auth-source-search' to get an API token using
                             (encode-coding-string data 'utf-8))))
     (url-retrieve url callback cbargs)))
 
+(defvar acrolinx-mode-last-json-string "")
+
 (defun acrolinx-mode-get-json-from-response ()
+  (setq acrolinx-mode-last-json-string (buffer-string))
   (decode-coding-region (point-min) (point-max) 'utf-8)
   (goto-char (point-min))
   (re-search-forward "^$" nil t) ;blank line separating headers from body
@@ -249,7 +252,8 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
         (insert (format "Acrolinx Score: %d\n\n" score))
         (acrolinx-mode-render-spelling-flags spelling-flags src-buffer)
         (acrolinx-mode-render-grammar-flags nil)
-        (setq buffer-read-only t)))))
+        (setq buffer-read-only t)
+        (goto-char (point-min))))))
 
 (defun acrolinx-mode-render-spelling-flags (spelling-flags src-buffer)
   (insert "Spelling:\n")

@@ -1,6 +1,6 @@
 ;;; acrolinx-mode.el --- Check with Acrolinx from within Emacs  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2019 Acrolinx GmbH
+;; Copyright (C) 2019, 2020 Acrolinx GmbH
 
 ;; Authors:
 ;; Claus Brunzema <claus.brunzema at acrolinx.com>
@@ -24,7 +24,7 @@
 ;;; Commentary:
 
 ;; First of all, please note that you need access to Acrolinx which is
-;; a commercial software. Without it, this mode is not for you.
+;; a commercial software. Without it, this mode is not useful for you.
 
 ;; Getting started:
 
@@ -36,12 +36,12 @@
 ;;   ~/.netrc (possibly encrypted).
 ;; - Load and evaluate acrolinx-mode.el
 ;; - Call `acrolinx-mode-check' in a buffer with some text you want to check.
-;; - The check results/flags will pop out in a dedicated buffer.
+;; - The check results/flags will pop up in a dedicated buffer.
 
 
 ;; TODOs before v1.0.0
 ;; - error handling!
-;; - display all flags
+;; DONE display all flags
 ;; - add document reference (buffer-file-name?) in check request
 ;; - add contentFormat in check request (markdown etc.)
 
@@ -54,17 +54,17 @@
 ;; - turn into minor mode?
 ;; - use customize
 ;; - display goal colors
-;; - key "g" -> refresh
+;; DONE key "g" -> refresh
 ;; - improve sdk documentation?
 ;; - sidebar lookalike with speedbar-style attached frame?
 ;; - support compile-next-error
-;; - Make guidance profiles configurable
+;; - make guidance profiles configurable
 
 
 ;;; Code:
 
 
-(defvar acrolinx-mode-version "0.8.0"
+(defvar acrolinx-mode-version "0.9.0"
   "Version of acrolinx-mode.el.")
 
 
@@ -101,11 +101,11 @@ we call `auth-source-search' to get an API token using
   "Face used to mark issues that have been handled.")
 
 
-(defvar acrolinx-mode-get-check-result-interval 1.5
+(defvar acrolinx-mode-request-check-result-interval 1.5
   "Interval in seconds between checking if a job has finished.")
 
 
-(defvar acrolinx-mode-get-check-result-max-tries 25
+(defvar acrolinx-mode-request-check-result-max-tries 25
   "How many times to check if a job has finished before giving up.")
 
 
@@ -159,24 +159,42 @@ we call `auth-source-search' to get an API token using
   (re-search-forward "^$" nil t) ;blank line separating headers from body
   (let ((json-object-type 'hash-table)
         (json-array-type 'list))
-    (json-read-from-string (buffer-substring (point) (point-max)))))
+    (condition-case err
+        (json-read-from-string (buffer-substring (point) (point-max)))
+      (error
+       (message "error: %s\n %s" err (buffer-string)) (make-hash-table)))))
+
+(defun acrolinx-mode-delete-overlays ()
+  (dolist (overlay acrolinx-mode-overlays)
+    (delete-overlay overlay))
+  (setq acrolinx-mode-overlays '()))
 
 (defvar acrolinx-mode-scorecard-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q")
+    (define-key map (kbd "q") #'kill-this-buffer)
+    (define-key map (kbd "g")
       (lambda ()
         (interactive)
-        (dolist (overlay acrolinx-mode-overlays)
-          (delete-overlay overlay))
-        (setq acrolinx-mode-overlays '())
-        (quit-window)))
+        (pop-to-buffer acrolinx-mode-src-buffer)
+        (acrolinx-mode-check)))
     map)
   "Keymap used in the Acrolinx scorecard buffer.")
 
 (define-derived-mode acrolinx-mode-scorecard-mode special-mode
   "Acrolinx Scorecard"
   "Major special mode for displaying Acrolinx scorecards."
-  (defvar-local acrolinx-mode-overlays '()))
+  (defvar-local acrolinx-mode-overlays '())
+  (defvar-local acrolinx-mode-src-buffer nil)
+  (add-hook 'kill-buffer-hook #'acrolinx-mode-delete-overlays nil 'local))
+
+(defun acrolinx-mode-prepare-scorecard-buffer ()
+  (with-current-buffer (get-buffer-create acrolinx-mode-scorecard-buffer-name)
+    (unless (eq major-mode 'acrolinx-mode-scorecard-mode)
+      (set-buffer-multibyte t)
+      (acrolinx-mode-scorecard-mode))
+    (acrolinx-mode-delete-overlays)
+    (setq buffer-read-only nil)
+    (erase-buffer)))
 
 
 ;;;- checking workflow ----------------------------------------------------
@@ -188,6 +206,7 @@ installs callbacks that handle the responses when they arrive
 later from the server. The resulting scorecards will be shown in
 a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
   (interactive)
+  (acrolinx-mode-prepare-scorecard-buffer)
   (acrolinx-mode-url-retrieve
    (concat acrolinx-mode-server-url "/api/v1/checking/checks")
    #'acrolinx-mode-handle-check-string-response
@@ -200,11 +219,14 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
              (encode-coding-string
               (buffer-substring-no-properties (point-min)
                                               (point-max))
-              'utf-8 t t)
-             'no-conversion t t)
+              'utf-8 t t) ; convert from whatever to utf-8
+             'no-conversion t t) ; convert utf-8 to raw bytes for base64
             t) "\",
              \"checkOptions\":{\"contentFormat\":\"TEXT\"},
-                               \"contentEncoding\":\"base64\"}")))
+                               \"contentEncoding\":\"base64\"}")
+   ;; TODO add guidance profile id
+   ;; TODO add partial check ranges from current region
+   ))
 
 (defun acrolinx-mode-handle-check-string-response (status
                                                    &optional src-buffer)
@@ -212,13 +234,13 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
          (gethash "result"
                   (gethash "links"
                            (acrolinx-mode-get-json-from-response)))))
-    (sit-for acrolinx-mode-get-check-result-interval)
-    (acrolinx-mode-get-check-result src-buffer check-result-url 1)))
+    (sit-for acrolinx-mode-request-check-result-interval)
+    (acrolinx-mode-request-check-result src-buffer check-result-url 1)))
 
-(defun acrolinx-mode-get-check-result (src-buffer url attempt)
-  (if (> attempt acrolinx-mode-get-check-result-max-tries)
+(defun acrolinx-mode-request-check-result (src-buffer url attempt)
+  (if (> attempt acrolinx-mode-request-check-result-max-tries)
       (error "No check result with %s after %d attempts"
-             url acrolinx-mode-get-check-result-max-tries)
+             url acrolinx-mode-request-check-result-max-tries)
     (acrolinx-mode-url-retrieve
      url
      #'acrolinx-mode-handle-check-result-response
@@ -229,92 +251,91 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
 (defun acrolinx-mode-handle-check-result-response (status
                                                    &optional
                                                    src-buffer url attempt)
-  (let* ((scorecard-buffer
-          (get-buffer-create acrolinx-mode-scorecard-buffer-name))
-         (json (acrolinx-mode-get-json-from-response))
+  (let* ((json (acrolinx-mode-get-json-from-response))
          (data (gethash "data" json)))
     (setq acrolinx-mode-last-check-result-response json)
     (if (null data)
         (progn
-          (sit-for acrolinx-mode-get-check-result-interval)
-          (acrolinx-mode-get-check-result src-buffer url (+ 1 attempt)))
+          ;; TODO use retryAfter
+          (sit-for acrolinx-mode-request-check-result-interval)
+          (acrolinx-mode-request-check-result src-buffer url (+ 1 attempt)))
       (let* ((score (gethash "score" (gethash "quality" data)))
-             (issues (gethash "issues" data))
-             (spelling-flags
-              (seq-filter (lambda (issue)
-                            (string-equal "SPELLING"
-                                          (gethash "goalId" issue)))
-                          issues)))
-        (switch-to-buffer-other-window scorecard-buffer)
-        (acrolinx-mode-scorecard-mode)
-        (setq buffer-read-only nil)
-        (erase-buffer)
+             (goals  (gethash "goals" data))
+             (issues (gethash "issues" data)))
+        (switch-to-buffer-other-window acrolinx-mode-scorecard-buffer-name)
+        (setq acrolinx-mode-src-buffer src-buffer)
         (insert (format "Acrolinx Score: %d\n\n" score))
-        (acrolinx-mode-render-spelling-flags spelling-flags src-buffer)
-        (acrolinx-mode-render-grammar-flags nil)
+        (acrolinx-mode-render-goals goals issues)
         (setq buffer-read-only t)
         (goto-char (point-min))))))
 
-(defun acrolinx-mode-render-spelling-flags (spelling-flags src-buffer)
-  (insert "Spelling:\n")
-  (dolist (flag spelling-flags)
-    (let* ((match (first
-                   (gethash "matches"
-                            (gethash "positionalInformation" flag))))
-           (match-text (gethash "originalPart" match))
-           (match-start (gethash "originalBegin" match))
-           (match-end (gethash "originalEnd" match))
-           (spacer (make-string (length match-text) ? ))
-           (suggestions (mapcar
-                         (lambda (suggestion)
-                           (gethash "surface" suggestion))
-                         (gethash "suggestions" flag)))
-           (overlay (make-overlay (+ 1 match-start)
-                                  (+ 1 match-end)
-                                  src-buffer))
-           (match-button-action (lambda (button)
-                                  (pop-to-buffer src-buffer)
-                                  (goto-char (overlay-start overlay)))))
-      (overlay-put overlay 'face acrolinx-mode-flag-face)
-      (push overlay acrolinx-mode-overlays)
+(defun acrolinx-mode-render-goals (goals issues)
+  (dolist (goal goals)
+    (let ((id (gethash "id" goal))
+          (display-name (gethash "displayName" goal))
+          (issue-count (gethash "issues" goal)))
+      (when (plusp issue-count)
+        (insert (format "%s (%d):\n" display-name issue-count))
+        (dolist (issue issues)
+          (when (string= id (gethash "goalId" issue))
+            (acrolinx-mode-render-issue issue)))
+        (insert "\n")))))
 
-      (insert-button match-text
-                     'action match-button-action
-                     'follow-link match-button-action
-                     'help-echo "jump to source location")
-      (when suggestions
-        (cl-flet ((create-suggestion-button-action (suggestion)
-                    (lambda (button)
-                      (let ((old-size (- (overlay-end overlay)
-                                         (overlay-start overlay))))
-                        (pop-to-buffer src-buffer)
-                        (goto-char (overlay-start overlay))
-                        (insert suggestion)
-                        (delete-char old-size)
-                        (overlay-put overlay 'face
-                                     acrolinx-mode-handled-flag-face)))))
-          (insert " -> ")
-          (insert-button (first suggestions)
-                         'action (create-suggestion-button-action
-                                  (first suggestions))
-                         'follow-link (create-suggestion-button-action
-                                       (first suggestions))
-                         'help-echo "replace text")
-          (insert "\n")
+(defun acrolinx-mode-render-issue (issue)
+  (let* ((match (first ;; TODO what about multiple matches?
+                 (gethash "matches"
+                          (gethash "positionalInformation" issue))))
+         (match-text (gethash "originalPart" match))
+         (match-start (gethash "originalBegin" match))
+         (match-end (gethash "originalEnd" match))
+         (spacer (make-string (length match-text) ? ))
+         (suggestions (mapcar
+                       (lambda (suggestion)
+                         (gethash "surface" suggestion))
+                       (gethash "suggestions" issue)))
+         (overlay (make-overlay (+ 1 match-start)
+                                (+ 1 match-end)
+                                acrolinx-mode-src-buffer))
+         (match-button-action (lambda (button)
+                                (pop-to-buffer acrolinx-mode-src-buffer)
+                                (goto-char (overlay-start overlay)))))
+    (overlay-put overlay 'face acrolinx-mode-flag-face)
+    (push overlay acrolinx-mode-overlays)
+
+    (insert-button match-text
+                   'action match-button-action
+                   'follow-link match-button-action
+                   'help-echo "jump to source location")
+
+    (if (null suggestions)
+        (insert "\n")
+      (cl-flet ((create-suggestion-button-action
+                 (suggestion)
+                 (lambda (button)
+                   (let ((old-size (- (overlay-end overlay)
+                                      (overlay-start overlay))))
+                     (pop-to-buffer acrolinx-mode-src-buffer)
+                     (goto-char (overlay-start overlay))
+                     (insert suggestion)
+                     (delete-char old-size)
+                     (overlay-put overlay 'face
+                                  acrolinx-mode-handled-flag-face)))))
+        (insert " -> ")
+        (insert-button (first suggestions)
+                       'action (create-suggestion-button-action
+                                (first suggestions))
+                       'follow-link (create-suggestion-button-action
+                                     (first suggestions))
+                       'help-echo "replace text")
+        (insert "\n")
         (dolist (suggestion (rest suggestions))
           (insert spacer " -> ")
-          (insert-button suggestion
-                         'action (create-suggestion-button-action suggestion)
-                         'follow-link (create-suggestion-button-action
-                                       suggestion)
-                         'help-echo "replace text")
-          (insert "\n"))))
-      (insert "\n"))))
-
-(defun acrolinx-mode-render-grammar-flags (grammar-flags)
-  (insert "Grammar:\n")
-  (insert "to be done...\n"))
-
+          (insert-button
+           suggestion
+           'action (create-suggestion-button-action suggestion)
+           'follow-link (create-suggestion-button-action suggestion)
+           'help-echo "replace text")
+          (insert "\n"))))))
 
 (provide 'acrolinx-mode)
 ;;; acrolinx-mode.el ends here

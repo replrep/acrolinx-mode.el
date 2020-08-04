@@ -127,7 +127,6 @@ Use setq-default to override the default.")
 ;;;- dependencies ---------------------------------------------------------
 (require 'cl)
 (require 'auth-source)
-(require 'url) ; TODO check if still needed
 (require 'url-http)
 (require 'json)
 
@@ -154,7 +153,7 @@ See `acrolinx-mode-get-available-targets'")
             (funcall secret)
           secret))))
 
-(defun acrolinx-mode-url-retrieve (url callback &optional
+(defun acrolinx-mode-url-http (url callback &optional
                                    callback-args
                                    request-method
                                    extra-headers
@@ -167,21 +166,31 @@ See `acrolinx-mode-get-available-targets'")
           extra-headers))
         (url-request-data (when (stringp data)
                             (encode-coding-string data 'utf-8))))
-    (url-retrieve url callback callback-args)))
+    (url-http (url-generic-parse-url url)
+              callback
+              (cons nil callback-args))))
 
 (defvar acrolinx-mode-last-json-string "" "only for debugging")
 
 (defun acrolinx-mode-get-json-from-response ()
   (setq acrolinx-mode-last-json-string (buffer-string))
+  (let ((http-response-code (url-http-parse-response)))
+    (unless (and (>= http-response-code 200)
+                 (< http-response-code 300))
+      (error "query failed with http status %d: %s"
+             http-response-code
+             (buffer-string))))
   (decode-coding-region (point-min) (point-max) 'utf-8)
   (goto-char (point-min))
-  (re-search-forward "^$" nil t) ;blank line separating headers from body
+  (re-search-forward "^HTTP/" nil t) ;skip to header start
+  (re-search-forward "^$" nil t) ;skip to body
   (let ((json-object-type 'hash-table)
         (json-array-type 'list))
     (condition-case err
         (json-read-from-string (buffer-substring (point) (point-max)))
       (error
-       (message "error: %s\n %s" err (buffer-string)) (make-hash-table)))))
+       (message "json parse error: %s\n %s" err (buffer-string))
+       (make-hash-table)))))
 
 (defun acrolinx-mode-delete-overlays ()
   (dolist (overlay acrolinx-mode-overlays)
@@ -216,39 +225,27 @@ See `acrolinx-mode-get-available-targets'")
     (erase-buffer)))
 
 (defun acrolinx-mode-get-targets-from-capabilities ()
-  (let ((deadline (+ (float-time) acrolinx-mode-timeout))
-        (finished nil)
-        (response-buffer nil))
-    (let ((url-request-extra-headers
-           (list (cons "x-acrolinx-client" acrolinx-mode-x-client)
-                 (cons "x-acrolinx-auth" (acrolinx-mode-get-x-auth)))))
-      (setq response-buffer
-            (url-http (url-generic-parse-url
-                       (concat acrolinx-mode-server-url
-                               "/api/v1/checking/capabilities"))
-                      (lambda (&optional status) (setq finished t))
-                      nil))
+  (let* ((deadline (+ (float-time) acrolinx-mode-timeout))
+         (finished nil)
+         (response-buffer
+          (acrolinx-mode-url-http
+           (concat acrolinx-mode-server-url "/api/v1/checking/capabilities")
+           (lambda (status) (setq finished t)))))
       (while (and (null finished)
                   (< (float-time) deadline))
-        (sleep-for 0.3))
+        (sit-for 0.3))
       (unless finished
         (error "timeout querying capabilities"))
 
       (with-current-buffer response-buffer
-        (let ((http-response-code (url-http-parse-response)))
-          (unless (and (>= http-response-code 200)
-                       (< http-response-code 300))
-            (error "capability query failed with http status %d: %s"
-                   http-response-code
-                   (buffer-string)))
-          (let* ((json (acrolinx-mode-get-json-from-response))
-                 (targets (gethash "guidanceProfiles" (gethash "data" json))))
-            (when (null targets)
-              (error "no targets found in capability response"))
-            (mapcar (lambda (target)
-                      (cons (gethash "id" target)
-                            (gethash "displayName" target)))
-                    targets)))))))
+        (let* ((json (acrolinx-mode-get-json-from-response))
+               (targets (gethash "guidanceProfiles" (gethash "data" json))))
+          (when (null targets)
+            (error "no targets found in capability response"))
+          (mapcar (lambda (target)
+                    (cons (gethash "id" target)
+                          (gethash "displayName" target)))
+                  targets)))))
 
 (defun acrolinx-mode-get-available-targets ()
   "Gets the available targets of the Acrolinx server.
@@ -259,10 +256,13 @@ a fresh list of targets is requested from the server."
   (interactive)
   (when (called-interactively-p 'interactive)
     (setq acrolinx-mode-available-targets '()))
-  (or
-   acrolinx-mode-available-targets
-   (setq acrolinx-mode-available-targets
-         (acrolinx-mode-get-targets-from-capabilities))))
+  (setq acrolinx-mode-available-targets
+        (or acrolinx-mode-available-targets
+            (acrolinx-mode-get-targets-from-capabilities)))
+  (when (called-interactively-p 'interactive)
+    (message "available targets: %s"
+             (string-join (mapcar #'cdr acrolinx-mode-available-targets) ", ")))
+  acrolinx-mode-available-targets)
 
 
 ;;;- checking workflow ----------------------------------------------------
@@ -287,8 +287,13 @@ Remembers the target in the buffer-local `acrolinx-mode-target'.
                     (default (car display-names)))
                (car (rassoc
                      (completing-read
-                      (concat "Target (default: " default: "): ")
-                      display-names)
+                      (concat "Target (default: " default "): ")
+                      display-names
+                      nil ;predicate
+                      t ; require-match
+                      nil ; initial input
+                      nil ; hist
+                      default)
                      available-targets))))))
     (when (null target)
       (error "could not determine a valid target"))
@@ -303,7 +308,7 @@ installs callbacks that handle the responses when they arrive
 later from the server. The resulting scorecards will be shown in
 a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
   (acrolinx-mode-prepare-scorecard-buffer)
-  (acrolinx-mode-url-retrieve
+  (acrolinx-mode-url-http
    (concat acrolinx-mode-server-url "/api/v1/checking/checks")
    #'acrolinx-mode-handle-check-string-response
    (list (current-buffer))
@@ -343,7 +348,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
   (if (> attempt acrolinx-mode-request-check-result-max-tries)
       (error "No check result with %s after %d attempts"
              url acrolinx-mode-request-check-result-max-tries)
-    (acrolinx-mode-url-retrieve
+    (acrolinx-mode-url-http
      url
      #'acrolinx-mode-handle-check-result-response
      (list src-buffer url attempt))))
@@ -364,6 +369,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
       (let* ((score (gethash "score" (gethash "quality" data)))
              (goals  (gethash "goals" data))
              (issues (gethash "issues" data)))
+        (message "Acrolinx score: %d" score)
         (switch-to-buffer-other-window acrolinx-mode-scorecard-buffer-name)
         (setq acrolinx-mode-src-buffer src-buffer)
         (insert (format "Acrolinx Score: %d\n\n" score))

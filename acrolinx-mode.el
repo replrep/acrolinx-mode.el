@@ -62,8 +62,8 @@
 ;; - improve sdk documentation?
 ;; - sidebar lookalike with speedbar-style attached frame?
 ;; - support compile-next-error
-;; - make guidance profiles configurable
-
+;; - make selected target configurable (with completion), put into buffer-local var
+;; - defvar acrolinx-default-target -> value or func
 
 ;;; Code:
 
@@ -140,7 +140,7 @@ we call `auth-source-search' to get an API token using
           secret))))
 
 (defun acrolinx-mode-url-retrieve (url callback &optional
-                                   cbargs
+                                   callback-args
                                    request-method
                                    extra-headers
                                    data)
@@ -152,9 +152,9 @@ we call `auth-source-search' to get an API token using
           extra-headers))
         (url-request-data (when (stringp data)
                             (encode-coding-string data 'utf-8))))
-    (url-retrieve url callback cbargs)))
+    (url-retrieve url callback callback-args)))
 
-(defvar acrolinx-mode-last-json-string "")
+(defvar acrolinx-mode-last-json-string "" "only for debugging")
 
 (defun acrolinx-mode-get-json-from-response ()
   (setq acrolinx-mode-last-json-string (buffer-string))
@@ -228,7 +228,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
             t) "\",
              \"checkOptions\":{\"contentFormat\":\"TEXT\"},
                                \"contentEncoding\":\"base64\"}")
-   ;; TODO add guidance profile id
+   ;; TODO add target id
    ;; TODO add partial check ranges from current region
    ))
 
@@ -250,7 +250,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
      #'acrolinx-mode-handle-check-result-response
      (list src-buffer url attempt))))
 
-(defvar acrolinx-mode-last-check-result-response nil)
+(defvar acrolinx-mode-last-check-result-response nil "only for debugging")
 
 (defun acrolinx-mode-handle-check-result-response (status
                                                    &optional

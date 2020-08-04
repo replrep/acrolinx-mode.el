@@ -43,14 +43,12 @@
 ;; - The check results/flags will pop up in a dedicated buffer.
 
 
-;; TODOs before v1.0.0
-;; - error handling!
-;; DONE display all flags
-;; - add document reference (buffer-file-name?) in check request
-;; - add contentFormat in check request (markdown etc.)
-
-
 ;; TODOs
+;; - (http/other) error handling!
+;; DONE display all flags
+;; DONE add document reference (buffer-file-name?) in check request
+;; - add contentFormat in check request (markdown etc.)
+;; - show flag help texts
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support checking a selection/region
 ;; - acrolinx-mode-dwim: check buffer/region
@@ -62,8 +60,10 @@
 ;; - improve sdk documentation?
 ;; - sidebar lookalike with speedbar-style attached frame?
 ;; - support compile-next-error
-;; - make guidance profiles configurable
-
+;; DONE make selected target configurable (with completion), put into buffer-local var
+;; DONE defvar acrolinx-default-target -> value or func
+;; - handle nil credentials
+;; - support custom field sending
 
 ;;; Code:
 
@@ -97,6 +97,10 @@ we call `auth-source-search' to get an API token using
 `acrolinx-mode-server-url' as :host parameter.")
 
 
+(defvar acrolinx-mode-timeout 30
+  "Timeout in seconds for communication with the Acrolinx server.")
+
+
 (defvar acrolinx-mode-flag-face 'match
   "Face used to highlight issues in the checked buffer text.")
 
@@ -117,11 +121,32 @@ we call `auth-source-search' to get an API token using
   "Name to use for the buffer containing scorecard results.")
 
 
+(defvar acrolinx-mode-initial-default-target nil
+  "Default target to use.
+
+Target to use for checking a buffer that has not been checked by
+Acrolinx before. If the value is a string, the string is used as
+the target name. If the value is a function it is called to get a
+target name. If the value is nil the user will be asked for a
+target name.")
+
+
+(defvar-local acrolinx-mode-target nil
+  "Target to use for checks in this buffer.")
+
+
 ;;;- dependencies ---------------------------------------------------------
 (require 'cl)
 (require 'auth-source)
-(require 'url)
+(require 'url-http)
 (require 'json)
+
+
+;;;- globals --------------------------------------------------------------
+(defvar acrolinx-mode-available-targets '()
+  "Cache for the available targets.
+
+See `acrolinx-mode-get-available-targets'")
 
 
 ;;;- utilities ------------------------------------------------------------
@@ -139,8 +164,8 @@ we call `auth-source-search' to get an API token using
             (funcall secret)
           secret))))
 
-(defun acrolinx-mode-url-retrieve (url callback &optional
-                                   cbargs
+(defun acrolinx-mode-url-http (url callback &optional
+                                   callback-args
                                    request-method
                                    extra-headers
                                    data)
@@ -152,21 +177,31 @@ we call `auth-source-search' to get an API token using
           extra-headers))
         (url-request-data (when (stringp data)
                             (encode-coding-string data 'utf-8))))
-    (url-retrieve url callback cbargs)))
+    (url-http (url-generic-parse-url url)
+              callback
+              (cons nil callback-args))))
 
-(defvar acrolinx-mode-last-json-string "")
+(defvar acrolinx-mode-last-json-string "" "only for debugging")
 
 (defun acrolinx-mode-get-json-from-response ()
   (setq acrolinx-mode-last-json-string (buffer-string))
+  (let ((http-response-code (url-http-parse-response)))
+    (unless (and (>= http-response-code 200)
+                 (< http-response-code 300))
+      (error "query failed with http status %d: %s"
+             http-response-code
+             (buffer-string))))
   (decode-coding-region (point-min) (point-max) 'utf-8)
   (goto-char (point-min))
-  (re-search-forward "^$" nil t) ;blank line separating headers from body
+  (re-search-forward "^HTTP/" nil t) ;skip to header start
+  (re-search-forward "^$" nil t) ;skip to body
   (let ((json-object-type 'hash-table)
         (json-array-type 'list))
     (condition-case err
         (json-read-from-string (buffer-substring (point) (point-max)))
       (error
-       (message "error: %s\n %s" err (buffer-string)) (make-hash-table)))))
+       (message "json parse error: %s\n %s" err (buffer-string))
+       (make-hash-table)))))
 
 (defun acrolinx-mode-delete-overlays ()
   (dolist (overlay acrolinx-mode-overlays)
@@ -200,18 +235,96 @@ we call `auth-source-search' to get an API token using
     (setq buffer-read-only nil)
     (erase-buffer)))
 
+(defun acrolinx-mode-get-targets-from-capabilities ()
+  (let* ((deadline (+ (float-time) acrolinx-mode-timeout))
+         (finished nil)
+         (response-buffer
+          (acrolinx-mode-url-http
+           (concat acrolinx-mode-server-url "/api/v1/checking/capabilities")
+           (lambda (status) (setq finished t)))))
+      (while (and (null finished)
+                  (< (float-time) deadline))
+        (sit-for 0.3))
+      (unless finished
+        (error "timeout querying capabilities"))
+
+      (with-current-buffer response-buffer
+        (let* ((json (acrolinx-mode-get-json-from-response))
+               (targets (gethash "guidanceProfiles" (gethash "data" json))))
+          (when (null targets)
+            (error "no targets found in capability response"))
+          (mapcar (lambda (target)
+                    (cons (gethash "id" target)
+                          (gethash "displayName" target)))
+                  targets)))))
+
+(defun acrolinx-mode-get-available-targets ()
+  "Gets the available targets of the Acrolinx server.
+
+The targets list is cached in `acrolinx-mode-available-targets'.
+If this function is called interactively the cache is flushed and
+a fresh list of targets is requested from the server."
+  (interactive)
+  (when (called-interactively-p 'interactive)
+    (setq acrolinx-mode-available-targets '()))
+  (setq acrolinx-mode-available-targets
+        (or acrolinx-mode-available-targets
+            (acrolinx-mode-get-targets-from-capabilities)))
+  (when (called-interactively-p 'interactive)
+    (message "available targets: %s"
+             (string-join (mapcar #'cdr acrolinx-mode-available-targets) ", ")))
+  acrolinx-mode-available-targets)
+
 
 ;;;- checking workflow ----------------------------------------------------
-(defun acrolinx-mode-check ()
+(defun acrolinx-mode-check (arg)
   "Check the contents of the current buffer with Acrolinx.
+
+If the buffer has been checked before the target is taken from
+the (buffer-local) `acrolinx-mode-target'. Otherwise, if
+`acrolinx-mode-initial-default-target' is not nil, the target
+name is taken from there. The last resort is asking the user to
+select a target from all available targets.
+
+When called with a prefix arg, always ask the user for the target.
+
+Remembers the target in the buffer-local `acrolinx-mode-target'.
+"
+  (interactive "P")
+  (let ((target
+         (or (and (null arg)
+                  acrolinx-mode-target)
+             (and (null arg)
+                  (or (and (functionp acrolinx-mode-initial-default-target)
+                           (funcall acrolinx-mode-initial-default-target))
+                      acrolinx-mode-initial-default-target))
+             (let* ((available-targets (acrolinx-mode-get-available-targets))
+                    (display-names (mapcar #'cdr available-targets))
+                    (default (car display-names)))
+               (car (rassoc
+                     (completing-read
+                      (concat "Target (default: " default "): ")
+                      display-names
+                      nil ;predicate
+                      t ; require-match
+                      nil ; initial input
+                      nil ; hist
+                      default)
+                     available-targets))))))
+    (when (null target)
+      (error "could not determine a valid target"))
+    (setq acrolinx-mode-target target) ; buffer local
+    (acrolinx-mode-send-check-string target)))
+
+(defun acrolinx-mode-send-check-string (target)
+  "Send the contents of the current buffer to the Acrolinx server.
 
 This sends the buffer content to `acrolinx-mode-server-url' and
 installs callbacks that handle the responses when they arrive
 later from the server. The resulting scorecards will be shown in
 a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
-  (interactive)
   (acrolinx-mode-prepare-scorecard-buffer)
-  (acrolinx-mode-url-retrieve
+  (acrolinx-mode-url-http
    (concat acrolinx-mode-server-url "/api/v1/checking/checks")
    #'acrolinx-mode-handle-check-string-response
    (list (current-buffer))
@@ -226,9 +339,15 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
               'utf-8 t t) ; convert from whatever to utf-8
              'no-conversion t t) ; convert utf-8 to raw bytes for base64
             t) "\",
-             \"checkOptions\":{\"contentFormat\":\"TEXT\"},
-                               \"contentEncoding\":\"base64\"}")
-   ;; TODO add guidance profile id
+             \"checkOptions\":{"
+            "\"guidanceProfileId\":\"" target "\","
+            "\"contentFormat\":\"TEXT\","
+            "\"checkType\":\"interactive\""
+            "},"
+            "\"contentEncoding\":\"base64\","
+            "\"document\":{"
+            "\"reference\":\"" (buffer-file-name) "\""
+            "}}")
    ;; TODO add partial check ranges from current region
    ))
 
@@ -245,12 +364,12 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
   (if (> attempt acrolinx-mode-request-check-result-max-tries)
       (error "No check result with %s after %d attempts"
              url acrolinx-mode-request-check-result-max-tries)
-    (acrolinx-mode-url-retrieve
+    (acrolinx-mode-url-http
      url
      #'acrolinx-mode-handle-check-result-response
      (list src-buffer url attempt))))
 
-(defvar acrolinx-mode-last-check-result-response nil)
+(defvar acrolinx-mode-last-check-result-response nil "only for debugging")
 
 (defun acrolinx-mode-handle-check-result-response (status
                                                    &optional
@@ -266,6 +385,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
       (let* ((score (gethash "score" (gethash "quality" data)))
              (goals  (gethash "goals" data))
              (issues (gethash "issues" data)))
+        (message "Acrolinx score: %d" score)
         (switch-to-buffer-other-window acrolinx-mode-scorecard-buffer-name)
         (setq acrolinx-mode-src-buffer src-buffer)
         (insert (format "Acrolinx Score: %d\n\n" score))

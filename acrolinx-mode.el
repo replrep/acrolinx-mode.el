@@ -46,7 +46,7 @@
 ;; TODOs
 ;; - (http/other) error handling!
 ;; DONE display all flags
-;; - add document reference (buffer-file-name?) in check request
+;; DONE add document reference (buffer-file-name?) in check request
 ;; - add contentFormat in check request (markdown etc.)
 ;; - show flag help texts
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
@@ -60,8 +60,8 @@
 ;; - improve sdk documentation?
 ;; - sidebar lookalike with speedbar-style attached frame?
 ;; - support compile-next-error
-;; - make selected target configurable (with completion), put into buffer-local var
-;; - defvar acrolinx-default-target -> value or func
+;; DONE make selected target configurable (with completion), put into buffer-local var
+;; DONE defvar acrolinx-default-target -> value or func
 ;; - handle nil credentials
 ;; - support custom field sending
 
@@ -96,8 +96,10 @@ we call `auth-source-search' to get an API token using
 `acrolinx-mode-x-client' as :user and the host portion of
 `acrolinx-mode-server-url' as :host parameter.")
 
+
 (defvar acrolinx-mode-timeout 30
   "Timeout in seconds for communication with the Acrolinx server.")
+
 
 (defvar acrolinx-mode-flag-face 'match
   "Face used to highlight issues in the checked buffer text.")
@@ -118,10 +120,19 @@ we call `auth-source-search' to get an API token using
 (defvar acrolinx-mode-scorecard-buffer-name "*Acrolinx Scorecard*"
   "Name to use for the buffer containing scorecard results.")
 
-(defvar-local acrolinx-mode-target nil
-  "Target to use for checks.
 
-Use setq-default to override the default.")
+(defvar acrolinx-mode-initial-default-target nil
+  "Default target to use.
+
+Target to use for checking a buffer that has not been checked by
+Acrolinx before. If the value is a string, the string is used as
+the target name. If the value is a function it is called to get a
+target name. If the value is nil the user will be asked for a
+target name.")
+
+
+(defvar-local acrolinx-mode-target nil
+  "Target to use for checks in this buffer.")
 
 
 ;;;- dependencies ---------------------------------------------------------
@@ -269,19 +280,24 @@ a fresh list of targets is requested from the server."
 (defun acrolinx-mode-check (arg)
   "Check the contents of the current buffer with Acrolinx.
 
-This gets the target to check either from the (buffer-local)
- `acrolinx-mode-target' or from user interaction via
-`completing-read' with the available targets as completion options.
+If the buffer has been checked before the target is taken from
+the (buffer-local) `acrolinx-mode-target'. Otherwise, if
+`acrolinx-mode-initial-default-target' is not nil, the target
+name is taken from there. The last resort is asking the user to
+select a target from all available targets.
 
 When called with a prefix arg, always ask the user for the target.
 
 Remembers the target in the buffer-local `acrolinx-mode-target'.
 "
   (interactive "P")
-  (unless (null arg)
-    (setq acrolinx-mode-target nil))
   (let ((target
-         (or acrolinx-mode-target
+         (or (and (null arg)
+                  acrolinx-mode-target)
+             (and (null arg)
+                  (or (and (functionp acrolinx-mode-initial-default-target)
+                           (funcall acrolinx-mode-initial-default-target))
+                      acrolinx-mode-initial-default-target))
              (let* ((available-targets (acrolinx-mode-get-available-targets))
                     (display-names (mapcar #'cdr available-targets))
                     (default (car display-names)))

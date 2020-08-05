@@ -48,7 +48,7 @@
 ;; DONE display all flags
 ;; DONE add document reference (buffer-file-name?) in check request
 ;; - add contentFormat in check request (markdown etc.)
-;; - show flag help texts
+;; DONE show flag help texts
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support checking a selection/region
 ;; - acrolinx-mode-dwim: check buffer/region
@@ -66,7 +66,7 @@
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
 ;; - send cancel after check timeout
-;; - sort flags by text position
+;; DONE sort flags by text position
 ;; - acrolinx-mode -> acrolinx
 
 
@@ -138,6 +138,7 @@ target name.")
 
 ;;;- dependencies ---------------------------------------------------------
 (require 'cl)
+(require 'cl-macs)
 (require 'auth-source)
 (require 'url-http)
 (require 'json)
@@ -259,6 +260,14 @@ See `acrolinx-mode-get-available-targets'")
     (setq buffer-read-only nil)
     (erase-buffer)))
 
+(defun acrolinx-mode-insert-button (label action help &optional face)
+  (let ((wrapper (lambda (button) (funcall action) nil)))
+    (insert-button label
+                   'action wrapper
+                   'follow-link wrapper
+                   'help-echo help
+                   'face (or face 'button))))
+
 (defun acrolinx-mode-get-targets-from-capabilities ()
   (let* ((deadline (+ (float-time) acrolinx-mode-timeout))
          (finished nil)
@@ -303,7 +312,7 @@ a fresh list of targets is requested from the server."
 
 
 ;;;- checking workflow ----------------------------------------------------
-(defun acrolinx-mode-check (arg)
+(defun acrolinx-mode-check (&optional arg)
   "Check the contents of the current buffer with Acrolinx.
 
 If the buffer has been checked before the target is taken from
@@ -415,7 +424,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
         (switch-to-buffer-other-window acrolinx-mode-scorecard-buffer-name)
         (setq acrolinx-mode-src-buffer src-buffer)
         (insert (format "Acrolinx Score: %d\n\n" score))
-        (acrolinx-mode-render-goals goals issues)
+        (acrolinx-mode-render-issues issues goals)
         (setq buffer-read-only t)
         (goto-char (point-min))))))
 
@@ -431,13 +440,32 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
             (acrolinx-mode-render-issue issue)))
         (insert "\n")))))
 
+(defun acrolinx-mode-render-issues (issues goals)
+  (cl-flet
+      ((get-issue-position (issue)
+         (or
+          (when-let ((pos-info (gethash "positionalInformation" issue))
+                     (matches (gethash "matches" pos-info))
+                     (first-match (first matches)))
+            (gethash "originalBegin" first-match))
+          0)))
+    (setq issues (sort issues
+                       (lambda (a b)
+                         (< (get-issue-position a) (get-issue-position b)))))
+    (mapc #'acrolinx-mode-render-issue issues)))
+
 (defun acrolinx-mode-render-issue (issue)
-  (let* ((match (first ;; TODO what about multiple matches?
-                 (gethash "matches"
-                          (gethash "positionalInformation" issue))))
-         (match-text (gethash "originalPart" match))
-         (match-start (gethash "originalBegin" match))
-         (match-end (gethash "originalEnd" match))
+  (let* ((all-matches (gethash "matches"
+                               (gethash "positionalInformation" issue)))
+         (start-match (first all-matches))
+         (end-match (car (last all-matches)));can be the same as start-match
+         (match-text (if (eq start-match end-match)
+                         (gethash "originalPart" start-match)
+                       (concat (gethash "originalPart" start-match)
+                               " ... "
+                               (gethash "originalPart" end-match))))
+         (match-start (gethash "originalBegin" start-match))
+         (match-end (gethash "originalEnd" end-match))
          (spacer (make-string (length match-text) ? ))
          (suggestions (mapcar
                        (lambda (suggestion)
@@ -445,23 +473,19 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
                        (gethash "suggestions" issue)))
          (overlay (make-overlay (+ 1 match-start)
                                 (+ 1 match-end)
-                                acrolinx-mode-src-buffer))
-         (match-button-action (lambda (button)
-                                (pop-to-buffer acrolinx-mode-src-buffer)
-                                (goto-char (overlay-start overlay)))))
+                                acrolinx-mode-src-buffer)))
     (overlay-put overlay 'face acrolinx-mode-flag-face)
     (push overlay acrolinx-mode-overlays)
 
-    (insert-button match-text
-                   'action match-button-action
-                   'follow-link match-button-action
-                   'help-echo "jump to source location")
+    (acrolinx-mode-insert-button match-text (lambda ()
+                                              (pop-to-buffer acrolinx-mode-src-buffer)
+                                              (goto-char (overlay-start overlay)))
+                                 "jump to source location")
 
     (if (null suggestions)
         (insert "\n")
-      (cl-flet ((create-suggestion-button-action
-                 (suggestion)
-                 (lambda (button)
+      (cl-flet ((create-suggestion-button-action (suggestion)
+                 (lambda ()
                    (let ((old-size (- (overlay-end overlay)
                                       (overlay-start overlay))))
                      (pop-to-buffer acrolinx-mode-src-buffer)
@@ -471,21 +495,45 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
                      (overlay-put overlay 'face
                                   acrolinx-mode-handled-flag-face)))))
         (insert " -> ")
-        (insert-button (first suggestions)
-                       'action (create-suggestion-button-action
-                                (first suggestions))
-                       'follow-link (create-suggestion-button-action
-                                     (first suggestions))
-                       'help-echo "replace text")
+        (acrolinx-mode-insert-button (first suggestions)
+                                     (create-suggestion-button-action
+                                      (first suggestions))
+                                     "replace text")
         (insert "\n")
         (dolist (suggestion (rest suggestions))
           (insert spacer " -> ")
-          (insert-button
-           suggestion
-           'action (create-suggestion-button-action suggestion)
-           'follow-link (create-suggestion-button-action suggestion)
-           'help-echo "replace text")
-          (insert "\n"))))))
+          (acrolinx-mode-insert-button suggestion
+                                       (create-suggestion-button-action suggestion)
+                                       "replace text")
+          (insert "\n"))))
+
+    (let ((issue-name (acrolinx-mode-string-from-html (gethash "displayNameHtml" issue)))
+          (guidance (acrolinx-mode-string-from-html (gethash "guidanceHtml" issue))))
+      (if (zerop (length guidance))
+          (insert (concat "  " issue-name))
+        (let ((marker-overlay (make-overlay (point) (+ 1 (point))))
+              (guidance-overlay (make-overlay 1 2))) ; dummy positions
+          (acrolinx-mode-insert-button
+           (concat "> " issue-name)
+           (lambda ()
+             (goto-char (overlay-start marker-overlay))
+             (setq buffer-read-only nil)
+             (if (overlay-get guidance-overlay 'invisible)
+                 (insert "v")
+               (insert ">"))
+             (delete-char 1)
+             (setq buffer-read-only t)
+             (overlay-put guidance-overlay 'invisible
+                          (not (overlay-get guidance-overlay 'invisible))))
+           "toggle guidance"
+           'default)
+          (insert "\n")
+          (let ((guidance-pos (point)))
+            (insert guidance)
+            (insert "\n")
+            (move-overlay guidance-overlay guidance-pos (point)))
+          (overlay-put guidance-overlay 'invisible t))))
+    (insert "\n\n")))
 
 (provide 'acrolinx-mode)
 ;;; acrolinx-mode.el ends here

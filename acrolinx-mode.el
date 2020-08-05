@@ -64,6 +64,11 @@
 ;; DONE defvar acrolinx-default-target -> value or func
 ;; - handle nil credentials
 ;; - support custom field sending
+;; - check for emacs version >= 25 (libxml support)
+;; - send cancel after check timeout
+;; - sort flags by text position
+;; - acrolinx-mode -> acrolinx
+
 
 ;;; Code:
 
@@ -131,22 +136,48 @@ target name. If the value is nil the user will be asked for a
 target name.")
 
 
-(defvar-local acrolinx-mode-target nil
-  "Target to use for checks in this buffer.")
-
-
 ;;;- dependencies ---------------------------------------------------------
 (require 'cl)
 (require 'auth-source)
 (require 'url-http)
 (require 'json)
+(require 'shr)
+(require 'subr-x)
 
 
-;;;- globals --------------------------------------------------------------
+;;;- internals ------------------------------------------------------------
 (defvar acrolinx-mode-available-targets '()
   "Cache for the available targets.
 
 See `acrolinx-mode-get-available-targets'")
+
+
+(defvar-local acrolinx-mode-target nil
+  "Target to use for checks in this buffer.")
+
+
+(defvar acrolinx-mode-scorecard-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") #'kill-this-buffer)
+    (define-key map (kbd "g")
+      (lambda ()
+        (interactive)
+        (pop-to-buffer acrolinx-mode-src-buffer)
+        (acrolinx-mode-check)))
+    map)
+  "Keymap used in the Acrolinx scorecard buffer.")
+
+
+(define-derived-mode acrolinx-mode-scorecard-mode special-mode
+  "Acrolinx Scorecard"
+  "Major special mode for displaying Acrolinx scorecards."
+  (defvar-local acrolinx-mode-overlays '())
+  (defvar-local acrolinx-mode-src-buffer nil)
+  (add-hook 'kill-buffer-hook #'acrolinx-mode-delete-overlays nil 'local))
+
+
+(defvar acrolinx-mode-last-response-string "" "only for debugging")
+(defvar acrolinx-mode-last-check-result-response nil "only for debugging")
 
 
 ;;;- utilities ------------------------------------------------------------
@@ -181,14 +212,17 @@ See `acrolinx-mode-get-available-targets'")
               callback
               (cons nil callback-args))))
 
-(defvar acrolinx-mode-last-json-string "" "only for debugging")
+(defun acrolinx-mode-check-status (status)
+  (message "%S" status)
+  (when-let ((error-info (plist-get status :error)))
+    (error "Http request failed: %s" (cdr error-info))))
 
 (defun acrolinx-mode-get-json-from-response ()
-  (setq acrolinx-mode-last-json-string (buffer-string))
+  (setq acrolinx-mode-last-response-string (buffer-string))
   (let ((http-response-code (url-http-parse-response)))
     (unless (and (>= http-response-code 200)
                  (< http-response-code 300))
-      (error "query failed with http status %d: %s"
+      (error "Query failed with http status %d: %s"
              http-response-code
              (buffer-string))))
   (decode-coding-region (point-min) (point-max) 'utf-8)
@@ -200,7 +234,7 @@ See `acrolinx-mode-get-available-targets'")
     (condition-case err
         (json-read-from-string (buffer-substring (point) (point-max)))
       (error
-       (message "json parse error: %s\n %s" err (buffer-string))
+       (message "Json parse error: %s\n %s" err (buffer-string))
        (make-hash-table)))))
 
 (defun acrolinx-mode-delete-overlays ()
@@ -208,23 +242,13 @@ See `acrolinx-mode-get-available-targets'")
     (delete-overlay overlay))
   (setq acrolinx-mode-overlays '()))
 
-(defvar acrolinx-mode-scorecard-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") #'kill-this-buffer)
-    (define-key map (kbd "g")
-      (lambda ()
-        (interactive)
-        (pop-to-buffer acrolinx-mode-src-buffer)
-        (acrolinx-mode-check)))
-    map)
-  "Keymap used in the Acrolinx scorecard buffer.")
-
-(define-derived-mode acrolinx-mode-scorecard-mode special-mode
-  "Acrolinx Scorecard"
-  "Major special mode for displaying Acrolinx scorecards."
-  (defvar-local acrolinx-mode-overlays '())
-  (defvar-local acrolinx-mode-src-buffer nil)
-  (add-hook 'kill-buffer-hook #'acrolinx-mode-delete-overlays nil 'local))
+(defun acrolinx-mode-string-from-html (html)
+  (with-temp-buffer
+    (insert html)
+    (let ((dom (libxml-parse-html-region (point-min) (point-max))))
+      (erase-buffer)
+      (shr-insert-document dom)
+      (string-trim (buffer-substring-no-properties (point-min) (point-max))))))
 
 (defun acrolinx-mode-prepare-scorecard-buffer ()
   (with-current-buffer (get-buffer-create acrolinx-mode-scorecard-buffer-name)
@@ -241,18 +265,20 @@ See `acrolinx-mode-get-available-targets'")
          (response-buffer
           (acrolinx-mode-url-http
            (concat acrolinx-mode-server-url "/api/v1/checking/capabilities")
-           (lambda (status) (setq finished t)))))
+           (lambda (status)
+             (acrolinx-mode-check-status status)
+             (setq finished t)))))
       (while (and (null finished)
                   (< (float-time) deadline))
         (sit-for 0.3))
       (unless finished
-        (error "timeout querying capabilities"))
+        (error "Timeout querying capabilities"))
 
       (with-current-buffer response-buffer
         (let* ((json (acrolinx-mode-get-json-from-response))
                (targets (gethash "guidanceProfiles" (gethash "data" json))))
           (when (null targets)
-            (error "no targets found in capability response"))
+            (error "No targets found in capability response"))
           (mapcar (lambda (target)
                     (cons (gethash "id" target)
                           (gethash "displayName" target)))
@@ -312,7 +338,7 @@ Remembers the target in the buffer-local `acrolinx-mode-target'.
                       default)
                      available-targets))))))
     (when (null target)
-      (error "could not determine a valid target"))
+      (error "Could not determine a valid target"))
     (setq acrolinx-mode-target target) ; buffer local
     (acrolinx-mode-send-check-string target)))
 
@@ -351,8 +377,8 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
    ;; TODO add partial check ranges from current region
    ))
 
-(defun acrolinx-mode-handle-check-string-response (status
-                                                   &optional src-buffer)
+(defun acrolinx-mode-handle-check-string-response (status &optional src-buffer)
+  (acrolinx-mode-check-status status)
   (let ((check-result-url
          (gethash "result"
                   (gethash "links"
@@ -362,6 +388,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
 
 (defun acrolinx-mode-request-check-result (src-buffer url attempt)
   (if (> attempt acrolinx-mode-request-check-result-max-tries)
+      ;; TODO send cancel
       (error "No check result with %s after %d attempts"
              url acrolinx-mode-request-check-result-max-tries)
     (acrolinx-mode-url-http
@@ -369,11 +396,10 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
      #'acrolinx-mode-handle-check-result-response
      (list src-buffer url attempt))))
 
-(defvar acrolinx-mode-last-check-result-response nil "only for debugging")
-
 (defun acrolinx-mode-handle-check-result-response (status
                                                    &optional
                                                    src-buffer url attempt)
+  (acrolinx-mode-check-status status)
   (let* ((json (acrolinx-mode-get-json-from-response))
          (data (gethash "data" json)))
     (setq acrolinx-mode-last-check-result-response json)

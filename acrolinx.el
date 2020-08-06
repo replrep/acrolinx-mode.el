@@ -72,13 +72,13 @@
 ;; DONE sort flags by text position
 ;; DONE acrolinx-mode -> acrolinx
 ;; DONE add link to scorecard
+;; DONE support -*- buffer settings for content format and target
 
 ;; - use customize
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - improve sdk documentation?
 ;; - option to put result in extra frame?
 ;; - support compile-next-error
-;; - support -*- buffer settings for content format and target
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
 
@@ -86,7 +86,7 @@
 ;;; Code:
 
 
-(defvar acrolinx-version "0.9.0"
+(defvar acrolinx-version "1.0.0"
   "Version of acrolinx.el.")
 
 
@@ -179,7 +179,25 @@ See `acrolinx-get-available-targets'")
 
 
 (defvar-local acrolinx-target nil
-  "Target to use for checks in this buffer.")
+  "Target to use for checks in this buffer.
+
+Can be a target id (a guid most of the time) or the
+display name of a target. A file local variable setting
+could look like this:
+
+-*- acrolinx-target: \"en - Product Content\"; -*-
+")
+
+
+(defvar-local acrolinx-content-format nil
+  "Content format to use for checks in this buffer.
+
+This overrides the automatic context mapping via
+`acrolinx-auto-content-format-alist'. A file local variable
+setting for this could look like this:
+
+-*- acrolinx-content-format: \"HTML\"; -*-
+")
 
 
 (defvar acrolinx-scorecard-mode-map
@@ -341,6 +359,17 @@ a fresh list of targets is requested from the server."
   acrolinx-available-targets)
 
 
+(defun acrolinx-get-target-for-buffer ()
+  (when-let ((id-or-name
+              (or acrolinx-target
+                  (and (functionp acrolinx-initial-default-target)
+                       (funcall acrolinx-initial-default-target))
+                  acrolinx-initial-default-target))
+             (available-targets (acrolinx-get-available-targets)))
+    (or (and (assoc id-or-name available-targets) id-or-name)
+        (car (rassoc id-or-name available-targets)))))
+
+
 ;;;- checking workflow ----------------------------------------------------
 (defun acrolinx-check (&optional arg)
   "Check the contents of the current buffer with Acrolinx.
@@ -358,11 +387,7 @@ Remembers the target in the buffer-local `acrolinx-target'.
   (interactive "P")
   (let ((target
          (or (and (null arg)
-                  acrolinx-target)
-             (and (null arg)
-                  (or (and (functionp acrolinx-initial-default-target)
-                           (funcall acrolinx-initial-default-target))
-                      acrolinx-initial-default-target))
+                  (acrolinx-get-target-for-buffer))
              (let* ((available-targets (acrolinx-get-available-targets))
                     (display-names (mapcar #'cdr available-targets))
                     (default (car display-names)))
@@ -411,9 +436,10 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
              \"checkOptions\":{"
             "\"guidanceProfileId\":\"" target "\","
             "\"contentFormat\":\""
-            (alist-get major-mode
-                       acrolinx-auto-content-format-alist
-                       "AUTO") "\","
+            (or acrolinx-content-format
+                (alist-get major-mode
+                           acrolinx-auto-content-format-alist
+                           "AUTO")) "\","
             (if (and begin end)
                 (concat "\"partialCheckRanges\":"
                         "[{\"begin\":" (number-to-string (- begin 1)) ","

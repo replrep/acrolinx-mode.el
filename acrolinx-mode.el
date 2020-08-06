@@ -44,10 +44,10 @@
 
 
 ;; TODOs
-;; - (http/other) error handling!
+;; DONE (http/other) error handling!
 ;; DONE display all flags
 ;; DONE add document reference (buffer-file-name?) in check request
-;; - add contentFormat in check request (markdown etc.)
+;; DONE add contentFormat in check request (markdown etc.)
 ;; DONE show flag help texts
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support checking a selection/region
@@ -69,6 +69,7 @@
 ;; DONE sort flags by text position
 ;; - acrolinx-mode -> acrolinx
 ;; - cleanup buffer-local vars
+;; - add link to scorecard
 
 
 ;;; Code:
@@ -135,6 +136,20 @@ Acrolinx before. If the value is a string, the string is used as
 the target name. If the value is a function it is called to get a
 target name. If the value is nil the user will be asked for a
 target name.")
+
+
+(defvar acrolinx-mode-auto-content-format-alist
+  '((text-mode . "TEXT")
+    (fundamental-mode . "TEXT")
+    (nxml-mode . "XML")
+    (html-mode . "HTML")
+    (json-mode . "JSON")
+    (yaml-mode . "YAML")
+    (conf-javaprop-mode . "PROPERTIES")
+    (java-mode . "JAVA")
+    (cc-mode . "CPP")
+    (markdown-mode . "MARKDOWN"))
+  "Alist of major mode symbols to content formats.")
 
 
 ;;;- dependencies ---------------------------------------------------------
@@ -376,7 +391,10 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
             t) "\",
              \"checkOptions\":{"
             "\"guidanceProfileId\":\"" target "\","
-            "\"contentFormat\":\"TEXT\","
+            "\"contentFormat\":\""
+            (alist-get major-mode
+                       acrolinx-mode-auto-content-format-alist
+                       "AUTO") "\","
             "\"checkType\":\"interactive\""
             "},"
             "\"contentEncoding\":\"base64\","

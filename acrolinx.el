@@ -61,7 +61,7 @@
 ;; - support compile-next-error
 ;; DONE make selected target configurable (with completion), put into buffer-local var
 ;; DONE defvar acrolinx-default-target -> value or func
-;; - handle nil credentials
+;; DONE handle nil credentials
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
 ;; - send cancel after check timeout
@@ -207,7 +207,8 @@ See `acrolinx-get-available-targets'")
               :secret)))
         (if (functionp secret)
             (funcall secret)
-          secret))))
+          secret))
+      (error "No authentication token found")))
 
 (defun acrolinx-url-retrieve (url callback &optional
                               callback-args

@@ -67,7 +67,7 @@
 ;; - send cancel after check timeout
 ;; DONE sort flags by text position
 ;; DONE acrolinx-mode -> acrolinx
-;; - add link to scorecard
+;; DONE add link to scorecard
 ;; - support -*- buffer settings for content format and target
 
 
@@ -151,10 +151,12 @@ target name.")
 (require 'cl)
 (require 'cl-macs)
 (require 'auth-source)
+(require 'url)
 (require 'url-http)
 (require 'json)
 (require 'shr)
 (require 'subr-x)
+(require 'browse-url)
 
 
 ;;;- internals ------------------------------------------------------------
@@ -207,7 +209,7 @@ See `acrolinx-get-available-targets'")
             (funcall secret)
           secret))))
 
-(defun acrolinx-url-http (url callback &optional
+(defun acrolinx-url-retrieve (url callback &optional
                               callback-args
                               request-method
                               extra-headers
@@ -220,13 +222,13 @@ See `acrolinx-get-available-targets'")
           extra-headers))
         (url-request-data (when (stringp data)
                             (encode-coding-string data 'utf-8))))
-    (url-http (url-generic-parse-url url)
-              callback
-              (cons nil callback-args))))
+    (url-retrieve url callback callback-args)))
 
 (defun acrolinx-check-status (status)
   (when-let ((error-info (plist-get status :error)))
-    (error "Http request failed: %s" (cdr error-info))))
+    (error "Http request failed: %s %s"
+           (cdr error-info)
+           (buffer-string))))
 
 (defun acrolinx-get-json-from-response ()
   (setq acrolinx-last-response-string (buffer-string))
@@ -282,7 +284,7 @@ See `acrolinx-get-available-targets'")
   (let* ((deadline (+ (float-time) acrolinx-timeout))
          (finished nil)
          (response-buffer
-          (acrolinx-url-http
+          (acrolinx-url-retrieve
            (concat acrolinx-server-url "/api/v1/checking/capabilities")
            (lambda (status)
              (acrolinx-check-status status)
@@ -373,7 +375,7 @@ installs callbacks that handle the responses when they arrive
 later from the server. The resulting scorecards will be shown in
 a separate buffer (called `acrolinx-scorecard-buffer-name')."
   (acrolinx-prepare-scorecard-buffer)
-  (acrolinx-url-http
+  (acrolinx-url-retrieve
    (concat acrolinx-server-url "/api/v1/checking/checks")
    #'acrolinx-handle-check-string-response
    (list (current-buffer))
@@ -420,14 +422,13 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
       ;; TODO send cancel
       (error "No check result with %s after %d attempts"
              url acrolinx-request-check-result-max-tries)
-    (acrolinx-url-http
+    (acrolinx-url-retrieve
      url
      #'acrolinx-handle-check-result-response
      (list src-buffer url attempt))))
 
-(defun acrolinx-handle-check-result-response (status
-                                                   &optional
-                                                   src-buffer url attempt)
+(defun acrolinx-handle-check-result-response (status &optional
+                                                     src-buffer url attempt)
   (acrolinx-check-status status)
   (let* ((json (acrolinx-get-json-from-response))
          (data (gethash "data" json)))
@@ -438,12 +439,19 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
           (sit-for acrolinx-request-check-result-interval)
           (acrolinx-request-check-result src-buffer url (+ 1 attempt)))
       (let* ((score (gethash "score" (gethash "quality" data)))
+             (scorecard-url (gethash "link"
+                                     (gethash "scorecard"
+                                              (gethash "reports" data))))
              (goals  (gethash "goals" data))
              (issues (gethash "issues" data)))
         (message "Acrolinx score: %d" score)
         (switch-to-buffer-other-window acrolinx-scorecard-buffer-name)
         (setq acrolinx-src-buffer src-buffer)
-        (insert (format "Acrolinx Score: %d\n\n" score))
+        (acrolinx-insert-button (format "Acrolinx Score: %d" score)
+                                (lambda ()
+                                  (browse-url scorecard-url))
+                                "Show scorecards in browser")
+        (insert "\n\n")
         (acrolinx-render-issues issues goals)
         (setq buffer-read-only t)
         (goto-char (point-min))))))

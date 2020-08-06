@@ -50,8 +50,8 @@
 ;; DONE add contentFormat in check request (markdown etc.)
 ;; DONE show flag help texts
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
-;; - support checking a selection/region
-;; - acrolinx-mode-dwim: check buffer/region
+;; DONE support checking a selection/region
+;; DONE acrolinx-mode-dwim: check buffer/region
 ;; - display statistics
 ;; - turn into minor mode?
 ;; - use customize
@@ -366,9 +366,13 @@ Remembers the target in the buffer-local `acrolinx-mode-target'.
     (when (null target)
       (error "Could not determine a valid target"))
     (setq acrolinx-mode-target target) ; buffer local
-    (acrolinx-mode-send-check-string target)))
+    (acrolinx-mode-send-check-string
+     target
+     (and (use-region-p) (region-beginning))
+     (and (use-region-p) (region-end))))
+  (setq deactivate-mark nil)) ; keep region
 
-(defun acrolinx-mode-send-check-string (target)
+(defun acrolinx-mode-send-check-string (target &optional begin end)
   "Send the contents of the current buffer to the Acrolinx server.
 
 This sends the buffer content to `acrolinx-mode-server-url' and
@@ -397,14 +401,17 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
             (alist-get major-mode
                        acrolinx-mode-auto-content-format-alist
                        "AUTO") "\","
+            (if (and begin end)
+                (concat "\"partialCheckRanges\":"
+                        "[{\"begin\":" (number-to-string (- begin 1)) ","
+                        "\"end\":" (number-to-string (- end 1)) "}],")
+                "")
             "\"checkType\":\"interactive\""
             "},"
             "\"contentEncoding\":\"base64\","
             "\"document\":{"
             "\"reference\":\"" (buffer-file-name) "\""
-            "}}")
-   ;; TODO add partial check ranges from current region
-   ))
+            "}}")))
 
 (defun acrolinx-mode-handle-check-string-response (status &optional src-buffer)
   (acrolinx-mode-check-status status)

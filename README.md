@@ -1,2 +1,2 @@
-# acrolinx-mode.el
+# acrolinx.el
 Acrolinx for Emacs.

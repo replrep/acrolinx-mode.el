@@ -28,7 +28,7 @@
 ;;; Commentary:
 
 ;; First of all, please note that you need access to Acrolinx which is
-;; a commercial software. Without it, this mode is not useful for you.
+;; a commercial software. Without it, this is not useful for you.
 
 ;; Getting started:
 
@@ -53,7 +53,6 @@
 ;; DONE support checking a selection/region
 ;; DONE acrolinx-dwim: check buffer/region
 ;; - display statistics
-;; - turn into minor mode?
 ;; - use customize
 ;; - display goal colors
 ;; DONE key "g" -> refresh

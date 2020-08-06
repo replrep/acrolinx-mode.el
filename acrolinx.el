@@ -112,10 +112,6 @@ we call `auth-source-search' to get an API token using
   "Face used to highlight issues in the checked buffer text.")
 
 
-(defvar acrolinx-handled-flag-face 'mode-line-inactive
-  "Face used to mark issues that have been handled.")
-
-
 (defvar acrolinx-request-check-result-interval 1.5
   "Interval in seconds between checking if a job has finished.")
 
@@ -255,8 +251,7 @@ See `acrolinx-get-available-targets'")
        (make-hash-table)))))
 
 (defun acrolinx-delete-overlays ()
-  (dolist (overlay acrolinx-overlays)
-    (delete-overlay overlay))
+  (mapc #'delete-overlay acrolinx-overlays)
   (setq acrolinx-overlays '()))
 
 (defun acrolinx-string-from-html (html)
@@ -513,10 +508,9 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                                       (overlay-start overlay))))
                      (pop-to-buffer acrolinx-src-buffer)
                      (goto-char (overlay-start overlay))
+                     (overlay-put overlay 'face nil)
                      (insert suggestion)
-                     (delete-char old-size)
-                     (overlay-put overlay 'face
-                                  acrolinx-handled-flag-face)))))
+                     (delete-char old-size)))))
         (insert " -> ")
         (acrolinx-insert-button (first suggestions)
                                      (create-suggestion-button-action

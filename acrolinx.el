@@ -1,4 +1,4 @@
-;;; acrolinx.el --- Check with Acrolinx from within Emacs  -*- lexical-binding: t; -*-
+;;; acrolinx.el --- Check content with Acrolinx -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2019, 2020 Acrolinx GmbH
 
@@ -28,7 +28,9 @@
 ;;; Commentary:
 
 ;; First of all, please note that you need access to Acrolinx which is
-;; a commercial software. Without it, this is not useful for you.
+;; a commercial software (see https://www.acrolinx.com/). Without it,
+;; this is not useful for you.
+
 
 ;; Getting started:
 
@@ -39,8 +41,19 @@
 ;;   emacs' auth-source library and put the token e.g. into
 ;;   ~/.netrc (possibly encrypted).
 ;; - Load and evaluate acrolinx.el
-;; - Call `acrolinx-check' in a buffer with some text you want to check.
+;; - Call `acrolinx-check' in a buffer with some text you want to check
+;;   (if there is an active region only the region content will be checked)
+;;   You will be promted for the target to use for the check. Your
+;;   choice will be remembered for the following checks (call
+;;   `acrolinx-check' with a prefix arg to force a new target promt)
 ;; - The check results/flags will pop up in a dedicated buffer.
+;;   - Click on the first line (Acrolinx Score) to browse the
+;;     detailed scorecards (probably in an external browser).
+;;   - Click on a problem word (left of the arrow) to set the point
+;;     in the source buffer.
+;;   - Click on a suggestion (right of the arrow) to put the suggestion
+;;     in the source buffer.
+;;   - Click on the lines starting with '+' to expand guidance.
 
 
 ;; TODOs
@@ -49,26 +62,25 @@
 ;; DONE add document reference (buffer-file-name?) in check request
 ;; DONE add contentFormat in check request (markdown etc.)
 ;; DONE show flag help texts
-;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; DONE support checking a selection/region
 ;; DONE acrolinx-dwim: check buffer/region
-;; - display statistics
-;; - use customize
-;; - display goal colors
 ;; DONE key "g" -> refresh
-;; - improve sdk documentation?
-;; - sidebar lookalike with speedbar-style attached frame?
-;; - support compile-next-error
-;; DONE make selected target configurable (with completion), put into buffer-local var
+;; DONE make selected target configurable (with completion)
 ;; DONE defvar acrolinx-default-target -> value or func
 ;; DONE handle nil credentials
-;; - support custom field sending
-;; - check for emacs version >= 25 (libxml support)
 ;; DONE send cancel after check timeout
 ;; DONE sort flags by text position
 ;; DONE acrolinx-mode -> acrolinx
 ;; DONE add link to scorecard
+
+;; - use customize
+;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
+;; - improve sdk documentation?
+;; - option to put result in extra frame?
+;; - support compile-next-error
 ;; - support -*- buffer settings for content format and target
+;; - support custom field sending
+;; - check for emacs version >= 25 (libxml support)
 
 
 ;;; Code:

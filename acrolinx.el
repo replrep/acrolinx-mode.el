@@ -64,7 +64,7 @@
 ;; DONE handle nil credentials
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
-;; - send cancel after check timeout
+;; DONE send cancel after check timeout
 ;; DONE sort flags by text position
 ;; DONE acrolinx-mode -> acrolinx
 ;; DONE add link to scorecard
@@ -411,25 +411,32 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
 
 (defun acrolinx-handle-check-string-response (status &optional src-buffer)
   (acrolinx-check-status status)
-  (let ((check-result-url
-         (gethash "result"
-                  (gethash "links"
-                           (acrolinx-get-json-from-response)))))
-    (sit-for acrolinx-request-check-result-interval)
-    (acrolinx-request-check-result src-buffer check-result-url 1)))
+  (let* ((links (gethash "links" (acrolinx-get-json-from-response)))
+         (check-result-url (gethash "result" links))
+         (cancel-url (gethash "cancel" links)))
+    (acrolinx-request-check-result src-buffer check-result-url cancel-url 1)))
 
-(defun acrolinx-request-check-result (src-buffer url attempt)
+(defun acrolinx-request-check-result (src-buffer
+                                      check-result-url cancel-url
+                                      attempt)
   (if (> attempt acrolinx-request-check-result-max-tries)
-      ;; TODO send cancel
-      (error "No check result with %s after %d attempts"
-             url acrolinx-request-check-result-max-tries)
+      (progn
+        (acrolinx-url-retrieve cancel-url
+                               (lambda (status) nil) ; don't care
+                               nil
+                               "DELETE")
+        (error "No check result at %s after %d attempts"
+               check-result-url acrolinx-request-check-result-max-tries))
     (acrolinx-url-retrieve
-     url
+     check-result-url
      #'acrolinx-handle-check-result-response
-     (list src-buffer url attempt))))
+     (list src-buffer check-result-url cancel-url attempt))))
 
 (defun acrolinx-handle-check-result-response (status &optional
-                                                     src-buffer url attempt)
+                                                     src-buffer
+                                                     check-result-url
+                                                     cancel-url
+                                                     attempt)
   (acrolinx-check-status status)
   (let* ((json (acrolinx-get-json-from-response))
          (data (gethash "data" json)))
@@ -438,7 +445,10 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
         (progn
           ;; TODO use retryAfter value from server response
           (sit-for acrolinx-request-check-result-interval)
-          (acrolinx-request-check-result src-buffer url (+ 1 attempt)))
+          (acrolinx-request-check-result src-buffer
+                                         check-result-url
+                                         cancel-url
+                                         (+ 1 attempt)))
       (let* ((score (gethash "score" (gethash "quality" data)))
              (scorecard-url (gethash "link"
                                      (gethash "scorecard"

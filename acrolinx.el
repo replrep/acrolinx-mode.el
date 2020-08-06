@@ -119,7 +119,7 @@ we call `auth-source-search' to get an API token using
   "Timeout in seconds for communication with the Acrolinx server.")
 
 
-(defvar acrolinx-flag-face 'match
+(defvar acrolinx-flag-face 'acrolinx-flag-match
   "Face used to highlight issues in the checked buffer text.")
 
 
@@ -192,6 +192,11 @@ See `acrolinx-get-available-targets'")
         (acrolinx-check)))
     map)
   "Keymap used in the Acrolinx scorecard buffer.")
+
+
+(defface acrolinx-flag-match '((t :background "light yellow"))
+  "Face for highlighting flags."
+  :group 'acrolinx-faces)
 
 
 (define-derived-mode acrolinx-scorecard-mode special-mode

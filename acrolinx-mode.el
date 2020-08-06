@@ -242,14 +242,15 @@ See `acrolinx-mode-get-available-targets'")
       (error "Query failed with http status %d: %s"
              http-response-code
              (buffer-string))))
-  (decode-coding-region (point-min) (point-max) 'utf-8)
   (goto-char (point-min))
   (re-search-forward "^HTTP/" nil t) ;skip to header start
   (re-search-forward "^$" nil t) ;skip to body
   (let ((json-object-type 'hash-table)
         (json-array-type 'list))
     (condition-case err
-        (json-read-from-string (buffer-substring (point) (point-max)))
+        (json-read-from-string (decode-coding-string
+                                (buffer-substring (point) (point-max))
+                                'utf-8))
       (error
        (message "Json parse error: %s\n %s" err (buffer-string))
        (make-hash-table)))))

@@ -1,0 +1,1295 @@
+{
+    "data": {
+        "checkOptions": {
+            "checkType": "interactive",
+            "confidential": false,
+            "contentFormat": "TEXT",
+            "guidanceProfileId": "ac41000e-6eea-48e7-ab35-9f03f163091a",
+            "guidanceProfileName": "en-Acrolinx Essentials",
+            "languageId": "en",
+            "partialCheckRanges": [],
+            "reportTypes": [
+                "scorecard"
+            ],
+            "termSets": [
+                {
+                    "displayName": "MyDemo"
+                }
+            ]
+        },
+        "counts": {
+            "issues": 13,
+            "sentences": 11,
+            "words": 140
+        },
+        "dictionaryScopes": [],
+        "document": {
+            "customFields": [
+                {
+                    "displayName": "List Field",
+                    "inputType": "optional",
+                    "key": "List Field",
+                    "possibleValues": [
+                        "List Item 1",
+                        "List Item 2",
+                        "List Item 3"
+                    ],
+                    "type": "list"
+                },
+                {
+                    "displayName": "Text Field",
+                    "inputType": "optional",
+                    "key": "Text Field",
+                    "possibleValues": [
+                        "Item"
+                    ],
+                    "type": "text"
+                }
+            ],
+            "id": "b4aa9255-4773-4a8c-8aff-8fc4fd48bdac"
+        },
+        "embed": [],
+        "goals": [
+            {
+                "color": "#ff838b",
+                "displayName": "Spelling",
+                "id": "SPELLING",
+                "issues": 10
+            },
+            {
+                "color": "#97beff",
+                "displayName": "Grammar",
+                "id": "GRAMMAR",
+                "issues": 1
+            },
+            {
+                "color": "#70cb9c",
+                "displayName": "Style",
+                "id": "STYLE",
+                "issues": 0
+            },
+            {
+                "color": "#ffc0ff",
+                "displayName": "Deprecated Terms",
+                "id": "TERMINOLOGY",
+                "issues": 0
+            },
+            {
+                "color": "#ffc300",
+                "displayName": "Valid Terms",
+                "id": "TERMINOLOGY_VALID",
+                "issues": 1
+            },
+            {
+                "color": "#90b0fd",
+                "displayName": "Admitted Terms",
+                "id": "TERMINOLOGY_ADMITTED",
+                "issues": 0
+            },
+            {
+                "color": "#b77891",
+                "displayName": "Clarity",
+                "id": "READABILITY",
+                "issues": 1
+            },
+            {
+                "color": "#cb3393",
+                "displayName": "Conversational Tone",
+                "id": "INFORMALITY",
+                "issues": 0
+            },
+            {
+                "color": "#be2b61",
+                "displayName": "Acronym (beta)",
+                "id": "ACRONYM",
+                "issues": 0
+            }
+        ],
+        "id": "177f0e8c-f4ce-4d2b-a27c-5ba8fc4ec2bc",
+        "issues": [
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "Preferred",
+                "displaySurface": "use",
+                "goalId": "TERMINOLOGY_VALID",
+                "guidanceHtml": "<div class=\"guidance term\">\n  <b>Domains</b>\n  <br><i>MyDemo</i>\n</div>\n",
+                "internalName": "term_flag",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/termhelp/?termUniversalId=bd8f6577-2716-4777-a2fb-d4418905ddf5&locale=en"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "pvXK26oXGNQ+Vivk45LT90edZT/yqVZH7pDFMRpv/4g=",
+                        "index": "lqREOu6ZIj91rAAe54xvYxReqE02N/zEnmYnbpEUF34==1",
+                        "issue": "g5bHO+cLy5C2f3w913Fch2FyLcwPCQrgD9fI7RJZMwk="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 213,
+                            "extractedEnd": 216,
+                            "extractedPart": "use",
+                            "originalBegin": 213,
+                            "originalEnd": 216,
+                            "originalPart": "use"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": []
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Typo perhaps? This word is written twice</span>",
+                "displaySurface": "was was",
+                "goalId": "GRAMMAR",
+                "guidanceHtml": "<span>Repeated word or character.</span>",
+                "internalName": "repeated_word",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/repeated_word.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                        "index": "6gbX6VMWVKuU42MlVC0okaEGhS6igA3znPZ/RfRhSn0==1",
+                        "issue": "JW9BbrSshOaIDjMwhETVcho3zf+x0Kmz5Cqhn686al0="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 509,
+                            "extractedEnd": 512,
+                            "extractedPart": "was",
+                            "originalBegin": 509,
+                            "originalEnd": 512,
+                            "originalPart": "was"
+                        },
+                        {
+                            "extractedBegin": 523,
+                            "extractedEnd": 526,
+                            "extractedPart": "was",
+                            "originalBegin": 523,
+                            "originalEnd": 526,
+                            "originalPart": "was"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": []
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Didx",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "5gynfJtTthIlpnBo7JQc9qXRkQ6h13xhFm3VKZGhqVc=",
+                        "index": "tA8oboIJrOyQlBF5msFJTJqOYw6Gj+AFxmWHxIgerG4==1",
+                        "issue": "qXLVMuDnIPGzQzz11GlqYycEQXp+Q3VVTXYUft2ihhU="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 0,
+                            "extractedEnd": 4,
+                            "extractedPart": "Didx",
+                            "originalBegin": 0,
+                            "originalEnd": 4,
+                            "originalPart": "Didx"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Dido",
+                        "iconId": null,
+                        "replacements": [
+                            "Dido"
+                        ],
+                        "surface": "Dido"
+                    },
+                    {
+                        "groupId": "Did",
+                        "iconId": null,
+                        "replacements": [
+                            "Did"
+                        ],
+                        "surface": "Did"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Darth",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "5gynfJtTthIlpnBo7JQc9qXRkQ6h13xhFm3VKZGhqVc=",
+                        "index": "EheurZf7bf4GdsaqK4G7tsZGQOR3AN/luor/VVvjfZE==1",
+                        "issue": "K8w9NF8SjSpWJWWgv8Xhyx8T/KP3vQzPkGm8POZACQ8="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 34,
+                            "extractedEnd": 39,
+                            "extractedPart": "Darth",
+                            "originalBegin": 34,
+                            "originalEnd": 39,
+                            "originalPart": "Darth"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Earth",
+                        "iconId": null,
+                        "replacements": [
+                            "Earth"
+                        ],
+                        "surface": "Earth"
+                    },
+                    {
+                        "groupId": "Garth",
+                        "iconId": null,
+                        "replacements": [
+                            "Garth"
+                        ],
+                        "surface": "Garth"
+                    },
+                    {
+                        "groupId": "Dart",
+                        "iconId": null,
+                        "replacements": [
+                            "Dart"
+                        ],
+                        "surface": "Dart"
+                    },
+                    {
+                        "groupId": "Darts",
+                        "iconId": null,
+                        "replacements": [
+                            "Darts"
+                        ],
+                        "surface": "Darts"
+                    },
+                    {
+                        "groupId": "Dearth",
+                        "iconId": null,
+                        "replacements": [
+                            "Dearth"
+                        ],
+                        "surface": "Dearth"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Plagueis",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "5gynfJtTthIlpnBo7JQc9qXRkQ6h13xhFm3VKZGhqVc=",
+                        "index": "ue4cr7l9zU+R9l17wGwzOpFGMEvnNxLcqsQ7Kkh2H8o==1",
+                        "issue": "li5XnJqQivH7jXWfM+xxwx7XC3LTvuCzJx7191avhbs="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 40,
+                            "extractedEnd": 48,
+                            "extractedPart": "Plagueis",
+                            "originalBegin": 40,
+                            "originalEnd": 48,
+                            "originalPart": "Plagueis"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Plagues",
+                        "iconId": null,
+                        "replacements": [
+                            "Plagues"
+                        ],
+                        "surface": "Plagues"
+                    },
+                    {
+                        "groupId": "Plague is",
+                        "iconId": null,
+                        "replacements": [
+                            "Plague is"
+                        ],
+                        "surface": "Plague is"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Sith",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "4Bf29xHPbHcc2SduxkfFZLGosACNB5IkhvxyhM+2PkY=",
+                        "index": "aXGqWI0x/yEssSe41DzeFvBMycgB+jBM/Op+ZXqvktI==1",
+                        "issue": "rR55GF4hUMOijo1gi3JwrrAuKIarGPRqJm/d8slsXQs="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 123,
+                            "extractedEnd": 127,
+                            "extractedPart": "Sith",
+                            "originalBegin": 123,
+                            "originalEnd": 127,
+                            "originalPart": "Sith"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Smith",
+                        "iconId": null,
+                        "replacements": [
+                            "Smith"
+                        ],
+                        "surface": "Smith"
+                    },
+                    {
+                        "groupId": "Site",
+                        "iconId": null,
+                        "replacements": [
+                            "Site"
+                        ],
+                        "surface": "Site"
+                    },
+                    {
+                        "groupId": "With",
+                        "iconId": null,
+                        "replacements": [
+                            "With"
+                        ],
+                        "surface": "With"
+                    },
+                    {
+                        "groupId": "Sixth",
+                        "iconId": null,
+                        "replacements": [
+                            "Sixth"
+                        ],
+                        "surface": "Sixth"
+                    },
+                    {
+                        "groupId": "Sikh",
+                        "iconId": null,
+                        "replacements": [
+                            "Sikh"
+                        ],
+                        "surface": "Sikh"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Darth",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "pvXK26oXGNQ+Vivk45LT90edZT/yqVZH7pDFMRpv/4g=",
+                        "index": "X83zM5Q6trZ8K+QFlslSgIS5ub9Qdx9yR+URo7ABrqc==1",
+                        "issue": "K8w9NF8SjSpWJWWgv8Xhyx8T/KP3vQzPkGm8POZACQ8="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 136,
+                            "extractedEnd": 141,
+                            "extractedPart": "Darth",
+                            "originalBegin": 136,
+                            "originalEnd": 141,
+                            "originalPart": "Darth"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Earth",
+                        "iconId": null,
+                        "replacements": [
+                            "Earth"
+                        ],
+                        "surface": "Earth"
+                    },
+                    {
+                        "groupId": "Garth",
+                        "iconId": null,
+                        "replacements": [
+                            "Garth"
+                        ],
+                        "surface": "Garth"
+                    },
+                    {
+                        "groupId": "Dart",
+                        "iconId": null,
+                        "replacements": [
+                            "Dart"
+                        ],
+                        "surface": "Dart"
+                    },
+                    {
+                        "groupId": "Darts",
+                        "iconId": null,
+                        "replacements": [
+                            "Darts"
+                        ],
+                        "surface": "Darts"
+                    },
+                    {
+                        "groupId": "Dearth",
+                        "iconId": null,
+                        "replacements": [
+                            "Dearth"
+                        ],
+                        "surface": "Dearth"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Plagueis",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "pvXK26oXGNQ+Vivk45LT90edZT/yqVZH7pDFMRpv/4g=",
+                        "index": "dlvzwSR7nKGoymmHLnu6W8uwD8b5nuZYFIJnQ/BESGU==1",
+                        "issue": "li5XnJqQivH7jXWfM+xxwx7XC3LTvuCzJx7191avhbs="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 142,
+                            "extractedEnd": 150,
+                            "extractedPart": "Plagueis",
+                            "originalBegin": 142,
+                            "originalEnd": 150,
+                            "originalPart": "Plagueis"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Plagues",
+                        "iconId": null,
+                        "replacements": [
+                            "Plagues"
+                        ],
+                        "surface": "Plagues"
+                    },
+                    {
+                        "groupId": "Plague is",
+                        "iconId": null,
+                        "replacements": [
+                            "Plague is"
+                        ],
+                        "surface": "Plague is"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "Sith",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "pvXK26oXGNQ+Vivk45LT90edZT/yqVZH7pDFMRpv/4g=",
+                        "index": "uYhuB9fvIUceUIm4ixR2VTn7drHMDN0gAfeyee+jG/k==1",
+                        "issue": "rR55GF4hUMOijo1gi3JwrrAuKIarGPRqJm/d8slsXQs="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 174,
+                            "extractedEnd": 178,
+                            "extractedPart": "Sith",
+                            "originalBegin": 174,
+                            "originalEnd": 178,
+                            "originalPart": "Sith"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "Smith",
+                        "iconId": null,
+                        "replacements": [
+                            "Smith"
+                        ],
+                        "surface": "Smith"
+                    },
+                    {
+                        "groupId": "Site",
+                        "iconId": null,
+                        "replacements": [
+                            "Site"
+                        ],
+                        "surface": "Site"
+                    },
+                    {
+                        "groupId": "Sixth",
+                        "iconId": null,
+                        "replacements": [
+                            "Sixth"
+                        ],
+                        "surface": "Sixth"
+                    },
+                    {
+                        "groupId": "With",
+                        "iconId": null,
+                        "replacements": [
+                            "With"
+                        ],
+                        "surface": "With"
+                    },
+                    {
+                        "groupId": "Sikh",
+                        "iconId": null,
+                        "replacements": [
+                            "Sikh"
+                        ],
+                        "surface": "Sikh"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "influnce",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "pvXK26oXGNQ+Vivk45LT90edZT/yqVZH7pDFMRpv/4g=",
+                        "index": "C1MYXrqoIetuDfkibeQy/u3SOcMfcXCi/5zwn6SYn0o==1",
+                        "issue": "9lHUZWty5tTDnGS9+SIMGvuR95x2LpKZGRLtPaXTEEg="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 230,
+                            "extractedEnd": 238,
+                            "extractedPart": "influnce",
+                            "originalBegin": 230,
+                            "originalEnd": 238,
+                            "originalPart": "influnce"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "influence",
+                        "iconId": null,
+                        "replacements": [
+                            "influence"
+                        ],
+                        "surface": "influence"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "eventuarlly",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                        "index": "qb7Vxvvj74ieTt6C9uWW7Nj5lC32knygOB5dAdkw5rY==1",
+                        "issue": "8J9ZfB3syuqT0c1zpdWo8nXQYg5g5VhzdqUNmTCSxks="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 551,
+                            "extractedEnd": 562,
+                            "extractedPart": "eventuarlly",
+                            "originalBegin": 551,
+                            "originalEnd": 562,
+                            "originalPart": "eventuarlly"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "eventually",
+                        "iconId": null,
+                        "replacements": [
+                            "eventually"
+                        ],
+                        "surface": "eventually"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {},
+                "displayNameHtml": "<span>Spelling</span>",
+                "displaySurface": "himsalf",
+                "goalId": "SPELLING",
+                "guidanceHtml": "<span>Is this word spelled correctly?</span>",
+                "internalName": "spelling",
+                "issueLocations": [],
+                "links": {
+                    "help": "https://unstable.acrolinx.com:443/htmldata/en/rules/help/spelling.html"
+                },
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "m4D7/H/rCzbXgs3t2JyjrdpKCiTW38h2SSZFKgbOZ04=",
+                        "index": "XRJatltKJ2YCdUiN8XnCEnFQ7MojrDGJ5cGX2hpDD1A==1",
+                        "issue": "03tpTM7gg+KjYKUxzp74Nnt3UpQAJY8HTfCxL/OCR4o="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 737,
+                            "extractedEnd": 744,
+                            "extractedPart": "himsalf",
+                            "originalBegin": 737,
+                            "originalEnd": 744,
+                            "originalPart": "himsalf"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [],
+                "suggestions": [
+                    {
+                        "groupId": "himself",
+                        "iconId": null,
+                        "replacements": [
+                            "himself"
+                        ],
+                        "surface": "himself"
+                    }
+                ]
+            },
+            {
+                "canAddToDictionary": false,
+                "debug": {
+                    "penalty": 460.19047619
+                },
+                "displayNameHtml": "Too complex? Your readers need content that is simple to read.",
+                "displaySurface": "He \u2026 did",
+                "goalId": "READABILITY",
+                "guidanceHtml": "",
+                "internalName": "guideline_DifficultSentence_simple",
+                "issueLocations": [],
+                "links": {},
+                "positionalInformation": {
+                    "hashes": {
+                        "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                        "index": "0C6lA/vsFT0pTghn+OsVZJ/cHif/yrzwUJY5dibKUI0==1",
+                        "issue": "7JzuEK+vVcwbT3X/DauZ30QIN0NycEQp/LmC/dO6/dY="
+                    },
+                    "matches": [
+                        {
+                            "extractedBegin": 466,
+                            "extractedEnd": 468,
+                            "extractedPart": "He",
+                            "originalBegin": 466,
+                            "originalEnd": 468,
+                            "originalPart": "He"
+                        },
+                        {
+                            "extractedBegin": 578,
+                            "extractedEnd": 581,
+                            "extractedPart": "did",
+                            "originalBegin": 578,
+                            "originalEnd": 581,
+                            "originalPart": "did"
+                        }
+                    ]
+                },
+                "readOnly": false,
+                "subIssues": [
+                    {
+                        "canAddToDictionary": false,
+                        "debug": {
+                            "penalty": 176.0
+                        },
+                        "displayNameHtml": "Try to <b>split up this sentence</b>.",
+                        "displaySurface": "He \u2026 did",
+                        "goalId": null,
+                        "guidanceHtml": "",
+                        "internalName": "phenomenon_DifficultSentence_simple_embedded_or_complex_sentence",
+                        "issueLocations": [],
+                        "links": {},
+                        "positionalInformation": {
+                            "hashes": {
+                                "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                                "index": "UWinWGtfLZGtaY184eSwn2MjX3Ec5rJws+qVf2XIaQI==1",
+                                "issue": "dTebnFl1//+xJykVzmPQlNkRLGRs7TLcVpO5KXHuUIw="
+                            },
+                            "matches": [
+                                {
+                                    "extractedBegin": 466,
+                                    "extractedEnd": 468,
+                                    "extractedPart": "He",
+                                    "originalBegin": 466,
+                                    "originalEnd": 468,
+                                    "originalPart": "He"
+                                },
+                                {
+                                    "extractedBegin": 578,
+                                    "extractedEnd": 581,
+                                    "extractedPart": "did",
+                                    "originalBegin": 578,
+                                    "originalEnd": 581,
+                                    "originalPart": "did"
+                                }
+                            ]
+                        },
+                        "readOnly": false,
+                        "subIssues": [],
+                        "suggestions": []
+                    },
+                    {
+                        "canAddToDictionary": false,
+                        "debug": {
+                            "penalty": 20.0
+                        },
+                        "displayNameHtml": "Try not to insert one phrase into another.",
+                        "displaySurface": ", which eventuarlly,",
+                        "goalId": null,
+                        "guidanceHtml": "",
+                        "internalName": "phenomenon_DifficultSentence_simple_avoid_parenthetical_expression",
+                        "issueLocations": [],
+                        "links": {},
+                        "positionalInformation": {
+                            "hashes": {
+                                "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                                "index": "7uYXAHVwDTHvAa5hmZwuvq7j3qJeOyHu85e4o+ICKlE==1",
+                                "issue": "tl+s6Y9lOkacG8vQuytsn1HpT6qbDUa3gac2/tKyJcU="
+                            },
+                            "matches": [
+                                {
+                                    "extractedBegin": 543,
+                                    "extractedEnd": 544,
+                                    "extractedPart": ",",
+                                    "originalBegin": 543,
+                                    "originalEnd": 544,
+                                    "originalPart": ","
+                                },
+                                {
+                                    "extractedBegin": 545,
+                                    "extractedEnd": 550,
+                                    "extractedPart": "which",
+                                    "originalBegin": 545,
+                                    "originalEnd": 550,
+                                    "originalPart": "which"
+                                },
+                                {
+                                    "extractedBegin": 551,
+                                    "extractedEnd": 562,
+                                    "extractedPart": "eventuarlly",
+                                    "originalBegin": 551,
+                                    "originalEnd": 562,
+                                    "originalPart": "eventuarlly"
+                                },
+                                {
+                                    "extractedBegin": 562,
+                                    "extractedEnd": 563,
+                                    "extractedPart": ",",
+                                    "originalBegin": 562,
+                                    "originalEnd": 563,
+                                    "originalPart": ","
+                                }
+                            ]
+                        },
+                        "readOnly": false,
+                        "subIssues": [],
+                        "suggestions": []
+                    },
+                    {
+                        "canAddToDictionary": false,
+                        "debug": {
+                            "penalty": 20.0
+                        },
+                        "displayNameHtml": "Try not to insert one phrase into another.",
+                        "displaySurface": ", of course,",
+                        "goalId": null,
+                        "guidanceHtml": "",
+                        "internalName": "phenomenon_DifficultSentence_simple_avoid_parenthetical_expression",
+                        "issueLocations": [],
+                        "links": {},
+                        "positionalInformation": {
+                            "hashes": {
+                                "environment": "Kc6fttXXn7GnYvST/Oovlw7P9hCKr0zR4U+/DxWE0Cc=",
+                                "index": "Iy0Qpleyo5jyoypTndwsYjdJMXWNn6cbYYF4f+dSrJY==1",
+                                "issue": "f9GbbrVe3AXemfPqqL0pvnCzUcCdQOl1xEqKrk9jYj4="
+                            },
+                            "matches": [
+                                {
+                                    "extractedBegin": 562,
+                                    "extractedEnd": 563,
+                                    "extractedPart": ",",
+                                    "originalBegin": 562,
+                                    "originalEnd": 563,
+                                    "originalPart": ","
+                                },
+                                {
+                                    "extractedBegin": 564,
+                                    "extractedEnd": 566,
+                                    "extractedPart": "of",
+                                    "originalBegin": 564,
+                                    "originalEnd": 566,
+                                    "originalPart": "of"
+                                },
+                                {
+                                    "extractedBegin": 567,
+                                    "extractedEnd": 573,
+                                    "extractedPart": "course",
+                                    "originalBegin": 567,
+                                    "originalEnd": 573,
+                                    "originalPart": "course"
+                                },
+                                {
+                                    "extractedBegin": 573,
+                                    "extractedEnd": 574,
+                                    "extractedPart": ",",
+                                    "originalBegin": 573,
+                                    "originalEnd": 574,
+                                    "originalPart": ","
+                                }
+                            ]
+                        },
+                        "readOnly": false,
+                        "subIssues": [],
+                        "suggestions": []
+                    }
+                ],
+                "suggestions": []
+            }
+        ],
+        "keywords": {
+            "discovered": [
+                {
+                    "count": 2,
+                    "density": 22.19974929080985,
+                    "keyword": "Darth Plagueis",
+                    "occurrences": [
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 136,
+                                    "extractedEnd": 141,
+                                    "extractedPart": "Darth",
+                                    "originalBegin": 136,
+                                    "originalEnd": 141,
+                                    "originalPart": "Darth"
+                                },
+                                {
+                                    "extractedBegin": 141,
+                                    "extractedEnd": 142,
+                                    "extractedPart": " ",
+                                    "originalBegin": 141,
+                                    "originalEnd": 142,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 142,
+                                    "extractedEnd": 150,
+                                    "extractedPart": "Plagueis",
+                                    "originalBegin": 142,
+                                    "originalEnd": 150,
+                                    "originalPart": "Plagueis"
+                                }
+                            ]
+                        },
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 34,
+                                    "extractedEnd": 39,
+                                    "extractedPart": "Darth",
+                                    "originalBegin": 34,
+                                    "originalEnd": 39,
+                                    "originalPart": "Darth"
+                                },
+                                {
+                                    "extractedBegin": 39,
+                                    "extractedEnd": 40,
+                                    "extractedPart": " ",
+                                    "originalBegin": 39,
+                                    "originalEnd": 40,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 40,
+                                    "extractedEnd": 48,
+                                    "extractedPart": "Plagueis",
+                                    "originalBegin": 40,
+                                    "originalEnd": 48,
+                                    "originalPart": "Plagueis"
+                                }
+                            ]
+                        }
+                    ],
+                    "prominence": 59.63369963369962,
+                    "sortKey": "3",
+                    "warnings": []
+                },
+                {
+                    "count": 2,
+                    "density": 22.19974929080985,
+                    "keyword": "dark side",
+                    "occurrences": [
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 306,
+                                    "extractedEnd": 310,
+                                    "extractedPart": "dark",
+                                    "originalBegin": 306,
+                                    "originalEnd": 310,
+                                    "originalPart": "dark"
+                                },
+                                {
+                                    "extractedBegin": 310,
+                                    "extractedEnd": 311,
+                                    "extractedPart": " ",
+                                    "originalBegin": 310,
+                                    "originalEnd": 311,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 311,
+                                    "extractedEnd": 315,
+                                    "extractedPart": "side",
+                                    "originalBegin": 311,
+                                    "originalEnd": 315,
+                                    "originalPart": "side"
+                                }
+                            ]
+                        },
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 380,
+                                    "extractedEnd": 384,
+                                    "extractedPart": "dark",
+                                    "originalBegin": 380,
+                                    "originalEnd": 384,
+                                    "originalPart": "dark"
+                                },
+                                {
+                                    "extractedBegin": 384,
+                                    "extractedEnd": 385,
+                                    "extractedPart": " ",
+                                    "originalBegin": 384,
+                                    "originalEnd": 385,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 385,
+                                    "extractedEnd": 389,
+                                    "extractedPart": "side",
+                                    "originalBegin": 385,
+                                    "originalEnd": 389,
+                                    "originalPart": "side"
+                                }
+                            ]
+                        }
+                    ],
+                    "prominence": 36.48351648351648,
+                    "sortKey": "2",
+                    "warnings": []
+                },
+                {
+                    "count": 1,
+                    "density": 14.006482349398794,
+                    "keyword": "Dark Lord",
+                    "occurrences": [
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 157,
+                                    "extractedEnd": 161,
+                                    "extractedPart": "Dark",
+                                    "originalBegin": 157,
+                                    "originalEnd": 161,
+                                    "originalPart": "Dark"
+                                },
+                                {
+                                    "extractedBegin": 161,
+                                    "extractedEnd": 162,
+                                    "extractedPart": " ",
+                                    "originalBegin": 161,
+                                    "originalEnd": 162,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 162,
+                                    "extractedEnd": 166,
+                                    "extractedPart": "Lord",
+                                    "originalBegin": 162,
+                                    "originalEnd": 166,
+                                    "originalPart": "Lord"
+                                }
+                            ]
+                        }
+                    ],
+                    "prominence": 34.285714285714285,
+                    "sortKey": "1",
+                    "warnings": []
+                },
+                {
+                    "count": 1,
+                    "density": 14.006482349398794,
+                    "keyword": "only thing",
+                    "occurrences": [
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 495,
+                                    "extractedEnd": 499,
+                                    "extractedPart": "only",
+                                    "originalBegin": 495,
+                                    "originalEnd": 499,
+                                    "originalPart": "only"
+                                },
+                                {
+                                    "extractedBegin": 499,
+                                    "extractedEnd": 500,
+                                    "extractedPart": " ",
+                                    "originalBegin": 499,
+                                    "originalEnd": 500,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 500,
+                                    "extractedEnd": 505,
+                                    "extractedPart": "thing",
+                                    "originalBegin": 500,
+                                    "originalEnd": 505,
+                                    "originalPart": "thing"
+                                }
+                            ]
+                        }
+                    ],
+                    "prominence": 15.238095238095239,
+                    "sortKey": "4",
+                    "warnings": []
+                },
+                {
+                    "count": 1,
+                    "density": 14.006482349398794,
+                    "keyword": "apprentice everything",
+                    "occurrences": [
+                        {
+                            "hashes": null,
+                            "matches": [
+                                {
+                                    "extractedBegin": 612,
+                                    "extractedEnd": 622,
+                                    "extractedPart": "apprentice",
+                                    "originalBegin": 612,
+                                    "originalEnd": 622,
+                                    "originalPart": "apprentice"
+                                },
+                                {
+                                    "extractedBegin": 622,
+                                    "extractedEnd": 623,
+                                    "extractedPart": " ",
+                                    "originalBegin": 622,
+                                    "originalEnd": 623,
+                                    "originalPart": " "
+                                },
+                                {
+                                    "extractedBegin": 623,
+                                    "extractedEnd": 633,
+                                    "extractedPart": "everything",
+                                    "originalBegin": 623,
+                                    "originalEnd": 633,
+                                    "originalPart": "everything"
+                                }
+                            ]
+                        }
+                    ],
+                    "prominence": 9.377289377289376,
+                    "sortKey": "0",
+                    "warnings": []
+                }
+            ],
+            "links": {
+                "getTargetKeywords": "https://unstable.acrolinx.com:443/iq/services/v1/rest/findability/targetKeywords?contextId=1c8548cd477b1692049d621be3d70694",
+                "putTargetKeywords": "https://unstable.acrolinx.com:443/iq/services/v1/rest/findability/targetKeywords?contextId=1c8548cd477b1692049d621be3d70694"
+            },
+            "proposed": [],
+            "target": []
+        },
+        "quality": {
+            "metrics": [
+                {
+                    "id": "Clarity index",
+                    "score": 73
+                },
+                {
+                    "id": "Informality index",
+                    "score": 71
+                },
+                {
+                    "id": "Liveliness index",
+                    "score": 85
+                },
+                {
+                    "id": "Flesch Reading Ease",
+                    "score": 73
+                }
+            ],
+            "score": 75,
+            "scoresByGoal": [
+                {
+                    "id": "GRAMMAR",
+                    "score": 65
+                },
+                {
+                    "id": "STYLE",
+                    "score": 100
+                },
+                {
+                    "id": "TERMINOLOGY",
+                    "score": 100
+                },
+                {
+                    "id": "TERMINOLOGY_VALID",
+                    "score": 0
+                },
+                {
+                    "id": "INFORMALITY",
+                    "score": 100
+                },
+                {
+                    "id": "READABILITY",
+                    "score": 71
+                },
+                {
+                    "id": "SPELLING",
+                    "score": 16
+                },
+                {
+                    "id": "TERMINOLOGY_ADMITTED",
+                    "score": 0
+                }
+            ],
+            "scoresByStrategy": [
+                {
+                    "id": "average",
+                    "score": 75
+                },
+                {
+                    "id": "minimum",
+                    "score": 16
+                }
+            ],
+            "status": "yellow"
+        },
+        "reports": {
+            "scorecard": {
+                "displayName": "Score Card",
+                "link": "https://unstable.acrolinx.com:443/api/v1/checking/scorecards/177f0e8c-f4ce-4d2b-a27c-5ba8fc4ec2bc",
+                "linkAuthenticated": "https://unstable.acrolinx.com:443/api/v1/checking/scorecards/177f0e8c-f4ce-4d2b-a27c-5ba8fc4ec2bc"
+            }
+        },
+        "runtimeStatistics": {
+            "startedAt": "2020-03-06T19:54:40.422Z"
+        }
+    },
+    "links": {}
+}

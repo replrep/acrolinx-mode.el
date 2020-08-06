@@ -66,8 +66,7 @@
 ;; - check for emacs version >= 25 (libxml support)
 ;; - send cancel after check timeout
 ;; DONE sort flags by text position
-;; - acrolinx-mode -> acrolinx
-;; - cleanup buffer-local vars
+;; DONE acrolinx-mode -> acrolinx
 ;; - add link to scorecard
 ;; - support -*- buffer settings for content format and target
 
@@ -209,10 +208,10 @@ See `acrolinx-get-available-targets'")
           secret))))
 
 (defun acrolinx-url-http (url callback &optional
-                                   callback-args
-                                   request-method
-                                   extra-headers
-                                   data)
+                              callback-args
+                              request-method
+                              extra-headers
+                              data)
   (let ((url-request-method (or request-method "GET"))
         (url-request-extra-headers
          (append
@@ -495,10 +494,10 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
     (push overlay acrolinx-overlays)
 
     (acrolinx-insert-button match-text
-                                 (lambda ()
-                                   (pop-to-buffer acrolinx-src-buffer)
-                                   (goto-char (overlay-start overlay)))
-                                 "jump to source location")
+                            (lambda ()
+                              (pop-to-buffer acrolinx-src-buffer)
+                              (goto-char (overlay-start overlay)))
+                            "jump to source location")
 
     (if (null suggestions)
         (insert "\n")
@@ -513,16 +512,15 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                      (delete-char old-size)))))
         (insert " -> ")
         (acrolinx-insert-button (first suggestions)
-                                     (create-suggestion-button-action
-                                      (first suggestions))
-                                     "replace text")
+                                (create-suggestion-button-action
+                                 (first suggestions))
+                                "replace text")
         (insert "\n")
         (dolist (suggestion (rest suggestions))
           (insert spacer " -> ")
-          (acrolinx-insert-button
-           suggestion
-           (create-suggestion-button-action suggestion)
-           "replace text")
+          (acrolinx-insert-button suggestion
+                                  (create-suggestion-button-action suggestion)
+                                  "replace text")
           (insert "\n"))))
 
     (let ((issue-name (acrolinx-string-from-html

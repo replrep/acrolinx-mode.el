@@ -70,6 +70,7 @@
 ;; - acrolinx-mode -> acrolinx
 ;; - cleanup buffer-local vars
 ;; - add link to scorecard
+;; - support -*- buffer settings for content format and target
 
 
 ;;; Code:
@@ -532,13 +533,13 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
         (let ((marker-overlay (make-overlay (point) (+ 1 (point))))
               (guidance-overlay (make-overlay 1 2))) ; dummy positions
           (acrolinx-mode-insert-button
-           (concat "> " issue-name)
+           (concat "+ " issue-name)
            (lambda ()
              (goto-char (overlay-start marker-overlay))
              (setq buffer-read-only nil)
              (if (overlay-get guidance-overlay 'invisible)
-                 (insert "v")
-               (insert ">"))
+                 (insert "-")
+               (insert "+"))
              (delete-char 1)
              (setq buffer-read-only t)
              (overlay-put guidance-overlay 'invisible

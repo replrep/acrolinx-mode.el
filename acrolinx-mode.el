@@ -68,6 +68,7 @@
 ;; - send cancel after check timeout
 ;; DONE sort flags by text position
 ;; - acrolinx-mode -> acrolinx
+;; - cleanup buffer-local vars
 
 
 ;;; Code:
@@ -214,7 +215,6 @@ See `acrolinx-mode-get-available-targets'")
               (cons nil callback-args))))
 
 (defun acrolinx-mode-check-status (status)
-  (message "%S" status)
   (when-let ((error-info (plist-get status :error)))
     (error "Http request failed: %s" (cdr error-info))))
 
@@ -414,7 +414,7 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
     (setq acrolinx-mode-last-check-result-response json)
     (if (null data)
         (progn
-          ;; TODO use retryAfter
+          ;; TODO use retryAfter value from server response
           (sit-for acrolinx-mode-request-check-result-interval)
           (acrolinx-mode-request-check-result src-buffer url (+ 1 attempt)))
       (let* ((score (gethash "score" (gethash "quality" data)))
@@ -428,17 +428,13 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
         (setq buffer-read-only t)
         (goto-char (point-min))))))
 
-(defun acrolinx-mode-render-goals (goals issues)
-  (dolist (goal goals)
-    (let ((id (gethash "id" goal))
-          (display-name (gethash "displayName" goal))
-          (issue-count (gethash "issues" goal)))
-      (when (plusp issue-count)
-        (insert (format "%s (%d):\n" display-name issue-count))
-        (dolist (issue issues)
-          (when (string= id (gethash "goalId" issue))
-            (acrolinx-mode-render-issue issue)))
-        (insert "\n")))))
+(defun acrolinx-mode-get-guidance-html (issue)
+  (or (and (plusp (length (gethash "guidanceHtml" issue)))
+           (gethash "guidanceHtml" issue))
+      (string-join
+       (mapcar (lambda (sub) (gethash "displayNameHtml" sub))
+               (gethash "subIssues" issue))
+       "<br/>")))
 
 (defun acrolinx-mode-render-issues (issues goals)
   (cl-flet
@@ -477,9 +473,10 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
     (overlay-put overlay 'face acrolinx-mode-flag-face)
     (push overlay acrolinx-mode-overlays)
 
-    (acrolinx-mode-insert-button match-text (lambda ()
-                                              (pop-to-buffer acrolinx-mode-src-buffer)
-                                              (goto-char (overlay-start overlay)))
+    (acrolinx-mode-insert-button match-text
+                                 (lambda ()
+                                   (pop-to-buffer acrolinx-mode-src-buffer)
+                                   (goto-char (overlay-start overlay)))
                                  "jump to source location")
 
     (if (null suggestions)
@@ -502,13 +499,16 @@ a separate buffer (called `acrolinx-mode-scorecard-buffer-name')."
         (insert "\n")
         (dolist (suggestion (rest suggestions))
           (insert spacer " -> ")
-          (acrolinx-mode-insert-button suggestion
-                                       (create-suggestion-button-action suggestion)
-                                       "replace text")
+          (acrolinx-mode-insert-button
+           suggestion
+           (create-suggestion-button-action suggestion)
+           "replace text")
           (insert "\n"))))
 
-    (let ((issue-name (acrolinx-mode-string-from-html (gethash "displayNameHtml" issue)))
-          (guidance (acrolinx-mode-string-from-html (gethash "guidanceHtml" issue))))
+    (let ((issue-name (acrolinx-mode-string-from-html
+                       (gethash "displayNameHtml" issue)))
+          (guidance (acrolinx-mode-string-from-html
+                     (acrolinx-mode-get-guidance-html issue))))
       (if (zerop (length guidance))
           (insert (concat "  " issue-name))
         (let ((marker-overlay (make-overlay (point) (+ 1 (point))))

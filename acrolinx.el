@@ -160,7 +160,9 @@ target name.")
 (defvar acrolinx-available-targets '()
   "Cache for the available targets.
 
-See `acrolinx-get-available-targets'")
+Do not use directly. Always call
+`acrolinx-get-available-targets' to get available targets.
+")
 
 
 (defvar-local acrolinx-target nil
@@ -442,7 +444,11 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
             "\"contentEncoding\":\"base64\","
             "\"document\":{"
             "\"reference\":\"" (buffer-file-name) "\""
-            "}}")))
+            "}}"))
+  (message "Checking %s with target '%s' at %s."
+           (buffer-name)
+           (cdr (assoc target (acrolinx-get-available-targets)))
+           acrolinx-server-url))
 
 (defun acrolinx-handle-check-string-response (src-buffer)
   (let* ((links (gethash "links" (acrolinx-get-json-from-response)))
@@ -486,7 +492,6 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                                      (gethash "scorecard"
                                               (gethash "reports" data))))
              (issues (gethash "issues" data)))
-        (message "Acrolinx score: %d" score)
         (switch-to-buffer-other-window acrolinx-scorecard-buffer-name)
         (setq acrolinx-src-buffer src-buffer)
         (acrolinx-insert-button (format "Acrolinx Score: %d" score)

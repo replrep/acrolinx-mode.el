@@ -40,8 +40,11 @@
 ;; - Put the API token into `acrolinx-api-token' or use
 ;;   emacs' auth-source library and put the token e.g. into
 ;;   ~/.netrc (possibly encrypted).
-;; - Load and evaluate acrolinx.el
-;; - Call `acrolinx-check' in a buffer with some text you want to check
+;; - Load and evaluate acrolinx.el. Or put acrolinx.el on your
+;;   `load-path' and use
+;;      (autoload 'acrolinx-check "acrolinx"
+;;                "Check buffer contents with Acrolinx" t)
+;; - Issue M-x `acrolinx-check' in a buffer with some text you want to check
 ;;   (if there is an active region only the region content will be checked)
 ;;   You will be promted for the target to use for the check. Your
 ;;   choice will be remembered for the following checks (call

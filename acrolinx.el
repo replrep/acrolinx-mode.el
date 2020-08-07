@@ -54,30 +54,15 @@
 ;;   - Click on a suggestion (right of the arrow) to put the suggestion
 ;;     in the source buffer.
 ;;   - Click on the lines starting with '+' to expand guidance.
+;;   - Type 'g' to refresh (check same buffer again), 'q' to quit.
 
 
 ;; TODOs
-;; DONE (http/other) error handling!
-;; DONE display all flags
-;; DONE add document reference (buffer-file-name?) in check request
-;; DONE add contentFormat in check request (markdown etc.)
-;; DONE show flag help texts
-;; DONE support checking a selection/region
-;; DONE acrolinx-dwim: check buffer/region
-;; DONE key "g" -> refresh
-;; DONE make selected target configurable (with completion)
-;; DONE defvar acrolinx-default-target -> value or func
-;; DONE handle nil credentials
-;; DONE send cancel after check timeout
-;; DONE sort flags by text position
-;; DONE acrolinx-mode -> acrolinx
-;; DONE add link to scorecard
-;; DONE support -*- buffer settings for content format and target
-
 ;; - use customize
 ;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
-;; - improve sdk documentation?
-;; - option to put result in extra frame?
+;; - support terminology (see sidebar)
+;; - support findability (see sidebar)
+;; - option to put result in extra/dedicated frame
 ;; - support compile-next-error
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
@@ -217,16 +202,20 @@ setting for this could look like this:
   :group 'acrolinx-faces)
 
 
+(defvar acrolinx-last-response-string "" "only for debugging")
+(defvar acrolinx-last-check-result-response nil "only for debugging")
+
+
 (define-derived-mode acrolinx-scorecard-mode special-mode
   "Acrolinx Scorecard"
   "Major special mode for displaying Acrolinx scorecards."
   (defvar-local acrolinx-overlays '())
   (defvar-local acrolinx-src-buffer nil)
-  (add-hook 'kill-buffer-hook #'acrolinx-delete-overlays nil 'local))
-
-
-(defvar acrolinx-last-response-string "" "only for debugging")
-(defvar acrolinx-last-check-result-response nil "only for debugging")
+  (add-hook 'kill-buffer-hook #'acrolinx-delete-overlays nil 'local)
+  (add-hook 'kill-buffer-hook (lambda ()
+                                (setq acrolinx-last-response-string nil)
+                                (setq acrolinx-last-check-result-response nil))
+            nil 'local))
 
 
 ;;;- utilities ------------------------------------------------------------
@@ -253,7 +242,10 @@ setting for this could look like this:
   (let ((url-request-method (or request-method "GET"))
         (url-request-extra-headers
          (append
-          (list (cons "x-acrolinx-client" acrolinx-x-client)
+          (list (cons "x-acrolinx-client" (concat
+                                           acrolinx-x-client
+                                           "; " acrolinx-version
+                                           "; 0000")) ;"build number"
                 (cons "x-acrolinx-auth" (acrolinx-get-x-auth)))
           extra-headers))
         (url-request-data (when (stringp data)
@@ -323,13 +315,14 @@ setting for this could look like this:
           (acrolinx-url-retrieve
            (concat acrolinx-server-url "/api/v1/checking/capabilities")
            (lambda (status)
-             (acrolinx-check-status status)
-             (setq finished t)))))
+             (setq finished t)
+             (acrolinx-check-status status)))))
       (while (and (null finished)
                   (< (float-time) deadline))
         (sit-for 0.3))
       (unless finished
-        (error "Timeout querying capabilities"))
+        (error "Timeout querying capabilities, last response: %s"
+               (with-current-buffer response-buffer (buffer-string))))
 
       (with-current-buffer response-buffer
         (let* ((json (acrolinx-get-json-from-response))
@@ -371,6 +364,7 @@ a fresh list of targets is requested from the server."
 
 
 ;;;- checking workflow ----------------------------------------------------
+;;;###autoload
 (defun acrolinx-check (&optional arg)
   "Check the contents of the current buffer with Acrolinx.
 
@@ -496,7 +490,6 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
              (scorecard-url (gethash "link"
                                      (gethash "scorecard"
                                               (gethash "reports" data))))
-             (goals  (gethash "goals" data))
              (issues (gethash "issues" data)))
         (message "Acrolinx score: %d" score)
         (switch-to-buffer-other-window acrolinx-scorecard-buffer-name)
@@ -506,7 +499,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                                   (browse-url scorecard-url))
                                 "Show scorecards in browser")
         (insert "\n\n")
-        (acrolinx-render-issues issues goals)
+        (acrolinx-render-issues issues)
         (setq buffer-read-only t)
         (goto-char (point-min))))))
 
@@ -518,7 +511,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                (gethash "subIssues" issue))
        "<br/>")))
 
-(defun acrolinx-render-issues (issues goals)
+(defun acrolinx-render-issues (issues)
   (cl-flet
       ((get-issue-position (issue)
          (or

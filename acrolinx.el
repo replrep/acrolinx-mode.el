@@ -249,26 +249,27 @@ setting for this could look like this:
                 (cons "x-acrolinx-auth" (acrolinx-get-x-auth)))
           extra-headers))
         (url-request-data (when (stringp data)
-                            (encode-coding-string data 'utf-8))))
-    (url-retrieve url callback callback-args)))
-
-(defun acrolinx-check-status (status)
-  (when-let ((error-info (plist-get status :error)))
-    (error "Http request failed: %s %s"
-           (cdr error-info)
-           (buffer-string))))
+                            (encode-coding-string data 'utf-8)))
+        (callback-wrapper (lambda (status &rest args)
+                            (setq acrolinx-last-response-string (buffer-string))
+                            (when-let ((error-info (plist-get status :error)))
+                              (error "Http request failed: %s %s"
+                                     (cdr error-info)
+                                     (buffer-string)))
+                            (let ((http-response-code
+                                   (url-http-parse-response)))
+                              (unless (and (>= http-response-code 200)
+                                           (< http-response-code 300))
+                                (error "Query failed with http status %d: %s"
+                                       http-response-code
+                                       (buffer-string))))
+                            (apply callback args))))
+    (url-retrieve url callback-wrapper callback-args)))
 
 (defun acrolinx-get-json-from-response ()
-  (setq acrolinx-last-response-string (buffer-string))
-  (let ((http-response-code (url-http-parse-response)))
-    (unless (and (>= http-response-code 200)
-                 (< http-response-code 300))
-      (error "Query failed with http status %d: %s"
-             http-response-code
-             (buffer-string))))
   (goto-char (point-min))
   (re-search-forward "^HTTP/" nil t) ;skip to header start
-  (re-search-forward "^$" nil t) ;skip to body
+  (re-search-forward "^$" nil t)     ;skip to content
   (let ((json-object-type 'hash-table)
         (json-array-type 'list))
     (condition-case err
@@ -276,8 +277,7 @@ setting for this could look like this:
                                 (buffer-substring (point) (point-max))
                                 'utf-8))
       (error
-       (message "Json parse error: %s\n %s" err (buffer-string))
-       (make-hash-table)))))
+       (error "Json parse error: %s\n %s" err (buffer-string))))))
 
 (defun acrolinx-delete-overlays ()
   (mapc #'delete-overlay acrolinx-overlays)
@@ -314,9 +314,7 @@ setting for this could look like this:
          (response-buffer
           (acrolinx-url-retrieve
            (concat acrolinx-server-url "/api/v1/checking/capabilities")
-           (lambda (status)
-             (setq finished t)
-             (acrolinx-check-status status)))))
+           (lambda () (setq finished t)))))
       (while (and (null finished)
                   (< (float-time) deadline))
         (sit-for 0.3))
@@ -446,8 +444,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
             "\"reference\":\"" (buffer-file-name) "\""
             "}}")))
 
-(defun acrolinx-handle-check-string-response (status &optional src-buffer)
-  (acrolinx-check-status status)
+(defun acrolinx-handle-check-string-response (src-buffer)
   (let* ((links (gethash "links" (acrolinx-get-json-from-response)))
          (check-result-url (gethash "result" links))
          (cancel-url (gethash "cancel" links)))
@@ -469,12 +466,10 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
      #'acrolinx-handle-check-result-response
      (list src-buffer check-result-url cancel-url attempt))))
 
-(defun acrolinx-handle-check-result-response (status &optional
-                                                     src-buffer
-                                                     check-result-url
-                                                     cancel-url
-                                                     attempt)
-  (acrolinx-check-status status)
+(defun acrolinx-handle-check-result-response (src-buffer
+                                              check-result-url
+                                              cancel-url
+                                              attempt)
   (let* ((json (acrolinx-get-json-from-response))
          (data (gethash "data" json)))
     (setq acrolinx-last-check-result-response json)

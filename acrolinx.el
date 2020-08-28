@@ -502,6 +502,11 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                                 (lambda ()
                                   (browse-url scorecard-url))
                                 "Show scorecards in browser")
+        (insert " ")
+        (acrolinx-insert-button "[Copy URL]"
+                                (lambda ()
+                                  (kill-new scorecard-url))
+                                "Copy Scorecard URL to clipboard")
         (insert "\n\n")
         (acrolinx-render-issues issues)
         (setq buffer-read-only t)

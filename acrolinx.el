@@ -192,7 +192,10 @@ setting for this could look like this:
 
 (defvar acrolinx-scorecard-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "q") #'kill-this-buffer)
+    (define-key map (kbd "q") (lambda ()
+                                (interactive)
+                                (quit-window t)))
+    (define-key map (kbd "TAB") #'forward-button)
     (define-key map (kbd "g")
       (lambda ()
         (interactive)

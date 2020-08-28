@@ -196,6 +196,13 @@ setting for this could look like this:
                                 (interactive)
                                 (quit-window t)))
     (define-key map (kbd "TAB") #'forward-button)
+    ;; yay, cargo cult. Just adding tons of TAB variations without
+    ;; really understanding it.
+    (define-key map [tab] #'forward-button)
+    (define-key map (kbd "TAB") #'forward-button)
+    (define-key map [backtab] #'backward-button)
+    (define-key map (kbd "S-TAB") #'backward-button)
+    (define-key map (kbd "<S-iso-lefttab>") #'backward-button)
     (define-key map (kbd "g")
       (lambda ()
         (interactive)

@@ -285,6 +285,7 @@ setting for this could look like this:
        (error "Json parse error: %s\n %s" err (buffer-string))))))
 
 (defun acrolinx-delete-overlays ()
+  (interactive)
   (mapc #'delete-overlay acrolinx-overlays)
   (setq acrolinx-overlays '()))
 

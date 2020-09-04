@@ -212,7 +212,8 @@ setting for this could look like this:
   "Keymap used in the Acrolinx scorecard buffer.")
 
 
-(defface acrolinx-flag-match '((t :background "light yellow"))
+(defface acrolinx-flag-match
+  '((t (:inherit compilation-error)))
   "Face for highlighting flags."
   :group 'acrolinx-faces)
 

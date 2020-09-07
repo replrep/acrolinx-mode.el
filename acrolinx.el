@@ -157,6 +157,7 @@ target name.")
 (require 'shr)
 (require 'subr-x)
 (require 'browse-url)
+(require 'compile)
 
 
 ;;;- internals ------------------------------------------------------------

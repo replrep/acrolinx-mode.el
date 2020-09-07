@@ -478,7 +478,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
   (if (> attempt acrolinx-request-check-result-max-tries)
       (progn
         (acrolinx-url-retrieve cancel-url
-                               (lambda (status) nil) ; don't care
+                               (lambda (&rest dont-care) nil)
                                nil
                                "DELETE")
         (error "No check result at %s after %d attempts"

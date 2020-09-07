@@ -610,11 +610,12 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
           (acrolinx-insert-button
            (concat "+ " issue-name)
            (lambda ()
-             (goto-char (overlay-start marker-overlay))
              (setq buffer-read-only nil)
+             (goto-char (+ 1 (overlay-start marker-overlay)))
              (if (overlay-get guidance-overlay 'invisible)
                  (insert "-")
                (insert "+"))
+             (goto-char (overlay-start marker-overlay))
              (delete-char 1)
              (setq buffer-read-only t)
              (overlay-put guidance-overlay 'invisible

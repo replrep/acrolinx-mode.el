@@ -157,6 +157,7 @@ target name.")
 (require 'shr)
 (require 'subr-x)
 (require 'browse-url)
+(require 'compile)
 
 
 ;;;- internals ------------------------------------------------------------
@@ -477,7 +478,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
   (if (> attempt acrolinx-request-check-result-max-tries)
       (progn
         (acrolinx-url-retrieve cancel-url
-                               (lambda (status) nil) ; don't care
+                               (lambda (&rest dont-care) nil)
                                nil
                                "DELETE")
         (error "No check result at %s after %d attempts"
@@ -609,11 +610,12 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
           (acrolinx-insert-button
            (concat "+ " issue-name)
            (lambda ()
-             (goto-char (overlay-start marker-overlay))
              (setq buffer-read-only nil)
+             (goto-char (+ 1 (overlay-start marker-overlay)))
              (if (overlay-get guidance-overlay 'invisible)
                  (insert "-")
                (insert "+"))
+             (goto-char (overlay-start marker-overlay))
              (delete-char 1)
              (setq buffer-read-only t)
              (overlay-put guidance-overlay 'invisible

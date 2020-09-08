@@ -148,7 +148,7 @@ target name.")
 
 
 ;;;- dependencies ---------------------------------------------------------
-(require 'cl)
+(require 'cl-lib)
 (require 'cl-macs)
 (require 'auth-source)
 (require 'url)

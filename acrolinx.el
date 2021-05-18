@@ -584,33 +584,42 @@ Remembers the target in the buffer-local `acrolinx-target'.
 
     (acrolinx-insert-button match-text
                             (lambda ()
-                              (pop-to-buffer acrolinx-src-buffer)
-                              (goto-char (overlay-start overlay)))
+                              (with-current-buffer acrolinx-src-buffer
+                                (goto-char (overlay-start overlay))
+                                (mapc (lambda (w) (set-window-point w (point)))
+                                      (get-buffer-window-list nil nil t))))
                             "jump to source location")
 
     (if (null suggestions)
         (insert "\n")
-      (cl-flet ((create-suggestion-button-action (suggestion)
-                 (lambda ()
-                   (let ((old-size (- (overlay-end overlay)
-                                      (overlay-start overlay))))
-                     (pop-to-buffer acrolinx-src-buffer)
-                     (goto-char (overlay-start overlay))
-                     (overlay-put overlay 'face nil)
-                     (insert suggestion)
-                     (delete-char old-size)))))
-        (insert " -> ")
-        (acrolinx-insert-button (cl-first suggestions)
-                                (create-suggestion-button-action
-                                 (cl-first suggestions))
-                                "replace text")
-        (insert "\n")
-        (dolist (suggestion (cl-rest suggestions))
-          (insert spacer " -> ")
-          (acrolinx-insert-button suggestion
-                                  (create-suggestion-button-action suggestion)
-                                  "replace text")
-          (insert "\n"))))
+      (let ((suggestion-buttons '()))
+        (cl-flet ((create-suggestion-button-action (suggestion)
+                    (lambda ()
+                      (let ((old-size (- (overlay-end overlay)
+                                         (overlay-start overlay))))
+                        (with-current-buffer acrolinx-src-buffer
+                          (goto-char (overlay-start overlay))
+                          (overlay-put overlay 'face nil)
+                          (insert suggestion)
+                          (delete-char old-size))
+                        (mapc #'delete-overlay suggestion-buttons)))))
+          (insert " -> ")
+          (push
+           (acrolinx-insert-button (cl-first suggestions)
+                                   (create-suggestion-button-action
+                                    (cl-first suggestions))
+                                   "replace text")
+           suggestion-buttons)
+          (insert "\n")
+          (dolist (suggestion (cl-rest suggestions))
+            (insert spacer " -> ")
+            (push
+             (acrolinx-insert-button
+              suggestion
+              (create-suggestion-button-action suggestion)
+              "replace text")
+             suggestion-buttons)
+            (insert "\n")))))
 
     (let ((issue-name (acrolinx-string-from-html
                        (gethash "displayNameHtml" issue)))

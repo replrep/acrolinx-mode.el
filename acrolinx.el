@@ -554,10 +554,10 @@ Remembers the target in the buffer-local `acrolinx-target'.
                      (first-match (cl-first matches)))
             (gethash "originalBegin" first-match))
           0)))
-    (setq issues (sort issues
-                       (lambda (a b)
-                         (< (get-issue-position a) (get-issue-position b)))))
-    (mapc #'acrolinx-render-issue issues)))
+    (mapc #'acrolinx-render-issue
+          (sort issues
+                (lambda (a b)
+                  (< (get-issue-position a) (get-issue-position b)))))))
 
 (defun acrolinx-render-issue (issue)
   (let* ((all-matches (gethash "matches"

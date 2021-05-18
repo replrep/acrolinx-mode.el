@@ -1,6 +1,6 @@
 ;;; acrolinx.el --- Check content with Acrolinx -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2019, 2020 Acrolinx GmbH
+;; Copyright (C) 2019, 2020, 2021 Acrolinx GmbH
 
 ;; Authors:
 ;; Claus Brunzema <claus.brunzema at acrolinx.com>
@@ -46,9 +46,9 @@
 ;;                "Check buffer contents with Acrolinx" t)
 ;; - Issue M-x `acrolinx-check' in a buffer with some text you want to check
 ;;   (if there is an active region only the region content will be checked)
-;;   You will be promted for the target to use for the check. Your
+;;   You will be prompted for the target to use for the check. Your
 ;;   choice will be remembered for the following checks (call
-;;   `acrolinx-check' with a prefix arg to force a new target promt)
+;;   `acrolinx-check' with a prefix arg to force a new target prompt)
 ;; - The check results/flags will pop up in a dedicated buffer.
 ;;   - Click on the first line (Acrolinx Score) to browse the
 ;;     detailed scorecards (probably in an external browser).
@@ -69,7 +69,7 @@
 ;; - support compile-next-error
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
-
+;; - support client locale http header
 
 ;;; Code:
 
@@ -97,10 +97,14 @@ See https://github.com/acrolinx/platform-api#getting-an-api-token on
 how to get an API token.
 
 If you do not want to set this token from
-lisp source code you can set this variable to nil. In this case
+Lisp source code you can set this variable to nil. In this case
 we call `auth-source-search' to get an API token using
 `acrolinx-x-client' as :user and the host portion of
-`acrolinx-server-url' as :host parameter.")
+`acrolinx-server-url' as :host parameter.") ; TODO add sign-in docs
+
+
+(defvar acrolinx-custom-fields nil
+  "List of custom fields for the current user.")
 
 
 (defvar acrolinx-timeout 30
@@ -109,10 +113,6 @@ we call `auth-source-search' to get an API token using
 
 (defvar acrolinx-flag-face 'acrolinx-flag-match
   "Face used to highlight issues in the checked buffer text.")
-
-
-(defvar acrolinx-request-check-result-interval 1.5
-  "Interval in seconds between checking if a job has finished.")
 
 
 (defvar acrolinx-request-check-result-max-tries 25
@@ -165,8 +165,7 @@ target name.")
   "Cache for the available targets.
 
 Do not use directly. Always call
-`acrolinx-get-available-targets' to get available targets.
-")
+`acrolinx-get-available-targets' to get available targets.")
 
 
 (defvar-local acrolinx-target nil
@@ -219,8 +218,7 @@ setting for this could look like this:
   :group 'acrolinx-faces)
 
 
-(defvar acrolinx-last-response-string "" "only for debugging")
-(defvar acrolinx-last-check-result-response nil "only for debugging")
+(defvar acrolinx-last-response-string "" "Only for debugging.")
 
 
 (define-derived-mode acrolinx-scorecard-mode special-mode
@@ -230,12 +228,43 @@ setting for this could look like this:
   (defvar-local acrolinx-src-buffer nil)
   (add-hook 'kill-buffer-hook #'acrolinx-delete-overlays nil 'local)
   (add-hook 'kill-buffer-hook (lambda ()
-                                (setq acrolinx-last-response-string nil)
-                                (setq acrolinx-last-check-result-response nil))
+                                (setq acrolinx-last-response-string nil))
             nil 'local))
 
 
 ;;;- utilities ------------------------------------------------------------
+(defun acrolinx-request-access-token ()
+  (let* ((sign-in-json
+          (acrolinx-url-retrieve-sync
+           (concat acrolinx-server-url "/api/v1/auth/sign-ins")
+           "POST" nil nil "invalid.access.token"))
+         (links (gethash "links" sign-in-json))
+         (interactive-link (gethash "interactive" links))
+         (poll-link (gethash "poll" links))
+         (deadline (+ (float-time) (or
+                                    (gethash "interactiveLinkTimeout"
+                                             (or (gethash "data" sign-in-json)
+                                                 (make-hash-table)))
+                                    900))))
+    (message "Sending browser to sign-in at %s" interactive-link)
+    (browse-url interactive-link)
+    (setq acrolinx-api-token nil)
+    (while (and (null acrolinx-api-token)
+                (< (float-time) deadline))
+      (let* ((poll (acrolinx-url-retrieve-sync
+                    poll-link "GET" nil nil "invalid.access.token"))
+             (data (gethash "data" poll))
+             (progress (gethash "progress" poll)))
+        (if (and data (gethash "accessToken" data))
+            (setq acrolinx-api-token (gethash "accessToken" data)
+                  acrolinx-custom-fields (gethash "customFields"
+                                                  (or (gethash "user" data)
+                                                      (make-hash-table))))
+          (sleep-for (or (gethash "retryAfter" progress) 1)))))
+    (unless acrolinx-api-token
+      (error "Timeout retrieving access token"))
+    acrolinx-api-token))
+
 (defun acrolinx-get-x-auth ()
   (or acrolinx-api-token
       (let ((secret
@@ -249,39 +278,14 @@ setting for this could look like this:
         (if (functionp secret)
             (funcall secret)
           secret))
+      (acrolinx-request-access-token)
       (error "No authentication token found")))
 
-(defun acrolinx-url-retrieve (url callback &optional
-                              callback-args
-                              request-method
-                              extra-headers
-                              data)
-  (let ((url-request-method (or request-method "GET"))
-        (url-request-extra-headers
-         (append
-          (list (cons "x-acrolinx-client" (concat
-                                           acrolinx-x-client
-                                           "; " acrolinx-version
-                                           "; 0000")) ;"build number"
-                (cons "x-acrolinx-auth" (acrolinx-get-x-auth)))
-          extra-headers))
-        (url-request-data (when (stringp data)
-                            (encode-coding-string data 'utf-8)))
-        (callback-wrapper (lambda (status &rest args)
-                            (setq acrolinx-last-response-string (buffer-string))
-                            (when-let ((error-info (plist-get status :error)))
-                              (error "Http request failed: %s %s"
-                                     (cdr error-info)
-                                     (buffer-string)))
-                            (let ((http-response-code
-                                   (url-http-parse-response)))
-                              (unless (and (>= http-response-code 200)
-                                           (< http-response-code 300))
-                                (error "Query failed with http status %d: %s"
-                                       http-response-code
-                                       (buffer-string))))
-                            (apply callback args))))
-    (url-retrieve url callback-wrapper callback-args)))
+(defun acrolinx-get-http-headers (&optional access-token-override)
+  (list (cons "x-acrolinx-client"
+              (concat acrolinx-x-client "; " acrolinx-version))
+        (cons "x-acrolinx-auth" (or access-token-override
+                                    (acrolinx-get-x-auth)))))
 
 (defun acrolinx-get-json-from-response ()
   (goto-char (point-min))
@@ -293,10 +297,50 @@ setting for this could look like this:
         (json-read-from-string (decode-coding-string
                                 (buffer-substring (point) (point-max))
                                 'utf-8))
-      (error
-       (error "Json parse error: %s\n %s" err (buffer-string))))))
+      (error "Json parse error: %s\n %s" err (buffer-string)))))
+
+(defun acrolinx-url-retrieve-sync (url &optional
+                                       request-method
+                                       extra-headers
+                                       data
+                                       access-token-override)
+  (let* ((deadline (+ (float-time) acrolinx-timeout))
+         (finished nil)
+         (result-status nil)
+         (url-request-method (or request-method "GET"))
+         (url-request-extra-headers
+          (append (acrolinx-get-http-headers access-token-override)
+                  extra-headers))
+         (url-request-data (when (stringp data)
+                             (encode-coding-string data 'utf-8)))
+         (response-buffer
+          (url-retrieve url
+                        (lambda (status &rest args)
+                          (setq acrolinx-last-response-string (buffer-string))
+                          (setq result-status status)
+                          (setq finished t))
+                        nil t t)))
+    (while (and (null finished)
+                (< (float-time) deadline))
+      (sleep-for 0.3))
+    (with-current-buffer response-buffer
+      (unless finished
+        (error "Query timeout, last response: '%s'"
+                        (buffer-string)))
+      (when-let ((error-info (plist-get result-status :error)))
+        (error "Http request failed: %s %s"
+                        (cdr error-info)
+                        (buffer-string)))
+      (let ((http-response-code (url-http-parse-response)))
+        (unless (and (>= http-response-code 200)
+                     (< http-response-code 300))
+          (error "Query failed with http status %d: %s"
+                          http-response-code
+                          (buffer-string))))
+      (acrolinx-get-json-from-response))))
 
 (defun acrolinx-delete-overlays ()
+  "TODO doc"
   (interactive)
   (mapc #'delete-overlay acrolinx-overlays)
   (setq acrolinx-overlays '()))
@@ -316,7 +360,8 @@ setting for this could look like this:
       (acrolinx-scorecard-mode))
     (acrolinx-delete-overlays)
     (setq buffer-read-only nil)
-    (erase-buffer)))
+    (erase-buffer)
+    (current-buffer)))
 
 (defun acrolinx-insert-button (label action help &optional face)
   (let ((wrapper (lambda (button) (funcall action) nil)))
@@ -327,28 +372,15 @@ setting for this could look like this:
                    'face (or face 'button))))
 
 (defun acrolinx-get-targets-from-capabilities ()
-  (let* ((deadline (+ (float-time) acrolinx-timeout))
-         (finished nil)
-         (response-buffer
-          (acrolinx-url-retrieve
-           (concat acrolinx-server-url "/api/v1/checking/capabilities")
-           (lambda () (setq finished t)))))
-      (while (and (null finished)
-                  (< (float-time) deadline))
-        (sit-for 0.3))
-      (unless finished
-        (error "Timeout querying capabilities, last response: %s"
-               (with-current-buffer response-buffer (buffer-string))))
-
-      (with-current-buffer response-buffer
-        (let* ((json (acrolinx-get-json-from-response))
-               (targets (gethash "guidanceProfiles" (gethash "data" json))))
-          (when (null targets)
-            (error "No targets found in capability response"))
-          (mapcar (lambda (target)
-                    (cons (gethash "id" target)
-                          (gethash "displayName" target)))
-                  targets)))))
+  (let* ((json (acrolinx-url-retrieve-sync
+                (concat acrolinx-server-url "/api/v1/checking/capabilities")))
+         (targets (gethash "guidanceProfiles" (gethash "data" json))))
+    (when (null targets)
+      (error "No targets found in capability response"))
+    (mapcar (lambda (target)
+              (cons (gethash "id" target)
+                    (gethash "displayName" target)))
+            targets)))
 
 (defun acrolinx-get-available-targets ()
   "Gets the available targets of the Acrolinx server.
@@ -359,14 +391,13 @@ a fresh list of targets is requested from the server."
   (interactive)
   (when (called-interactively-p 'interactive)
     (setq acrolinx-available-targets '()))
-  (setq acrolinx-available-targets
-        (or acrolinx-available-targets
-            (acrolinx-get-targets-from-capabilities)))
+  (unless acrolinx-available-targets
+    (setq acrolinx-available-targets
+          (acrolinx-get-targets-from-capabilities)))
   (when (called-interactively-p 'interactive)
     (message "available targets: %s"
              (string-join (mapcar #'cdr acrolinx-available-targets) ", ")))
   acrolinx-available-targets)
-
 
 (defun acrolinx-get-target-for-buffer ()
   (when-let ((id-or-name
@@ -377,6 +408,21 @@ a fresh list of targets is requested from the server."
              (available-targets (acrolinx-get-available-targets)))
     (or (and (assoc id-or-name available-targets) id-or-name)
         (car (rassoc id-or-name available-targets)))))
+
+(defun acrolinx-ask-user-for-target ()
+  (let* ((available-targets (acrolinx-get-available-targets))
+         (display-names (mapcar #'cdr available-targets))
+         (default (car display-names)))
+    (car (rassoc
+          (completing-read
+           (concat "Target (default: " default "): ")
+           display-names
+           nil ;predicate
+           t ; require-match
+           nil ; initial input
+           nil ; hist
+           default)
+          available-targets))))
 
 
 ;;;- checking workflow ----------------------------------------------------
@@ -398,40 +444,45 @@ Remembers the target in the buffer-local `acrolinx-target'.
   (let ((target
          (or (and (null arg)
                   (acrolinx-get-target-for-buffer))
-             (let* ((available-targets (acrolinx-get-available-targets))
-                    (display-names (mapcar #'cdr available-targets))
-                    (default (car display-names)))
-               (car (rassoc
-                     (completing-read
-                      (concat "Target (default: " default "): ")
-                      display-names
-                      nil ;predicate
-                      t ; require-match
-                      nil ; initial input
-                      nil ; hist
-                      default)
-                     available-targets))))))
+             (acrolinx-ask-user-for-target))))
     (when (null target)
       (error "Could not determine a valid target"))
     (setq acrolinx-target target) ; buffer local
-    (acrolinx-send-check-string
-     target
-     (and (use-region-p) (region-beginning))
-     (and (use-region-p) (region-end))))
+    (let* ((check-string-response (acrolinx-send-check-string
+                                   target
+                                   (and (use-region-p) (region-beginning))
+                                   (and (use-region-p) (region-end))))
+           (links (gethash "links" check-string-response))
+           (check-result-url (gethash "result" links))
+           (cancel-url (gethash "cancel" links))
+           (attempt 1)
+           (data nil))
+      (while (and (< attempt acrolinx-request-check-result-max-tries)
+                  (null data))
+        (message "Request check result from %s (%d)" check-result-url attempt)
+        (let* ((check-result (acrolinx-url-retrieve-sync check-result-url))
+               (retry-after (or (gethash "retryAfter" check-result) 1)))
+          (setq data (gethash "data" check-result))
+          (unless data
+            (sleep-for retry-after)))
+        (cl-incf attempt))
+      (unless data
+        (let ((url-request-method "DELETE")
+              (url-request-extra-headers (acrolinx-get-http-headers)))
+          (url-retrieve cancel-url (lambda (&rest dont-care) nil) nil t t))
+        (error "No check result at %s after %d attempts"
+               check-result-url acrolinx-request-check-result-max-tries))
+      (acrolinx-handle-check-result data)))
   (setq deactivate-mark nil)) ; keep region
 
 (defun acrolinx-send-check-string (target &optional begin end)
-  "Send the contents of the current buffer to the Acrolinx server.
-
-This sends the buffer content to `acrolinx-server-url' and
-installs callbacks that handle the responses when they arrive
-later from the server. The resulting scorecards will be shown in
-a separate buffer (called `acrolinx-scorecard-buffer-name')."
-  (acrolinx-prepare-scorecard-buffer)
-  (acrolinx-url-retrieve
+  "Send the contents of the current buffer to the Acrolinx server."
+  (message "Checking %s with target '%s' at %s."
+           (buffer-name)
+           (cdr (assoc target (acrolinx-get-available-targets)))
+           acrolinx-server-url)
+  (acrolinx-url-retrieve-sync
    (concat acrolinx-server-url "/api/v1/checking/checks")
-   #'acrolinx-handle-check-string-response
-   (list (current-buffer))
    "POST"
    '(("content-type" . "application/json"))
    (concat "{\"content\":\""
@@ -449,83 +500,45 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
             (or acrolinx-content-format
                 (alist-get major-mode
                            acrolinx-auto-content-format-alist
-                           "AUTO")) "\","
+                           "AUTO"))
+            "\","
             (if (and begin end)
-                (concat "\"partialCheckRanges\":"
-                        "[{\"begin\":" (number-to-string (- begin 1)) ","
-                        "\"end\":" (number-to-string (- end 1)) "}],")
-                "")
-            "\"checkType\":\"interactive\""
-            "},"
+                (concat
+                 "\"partialCheckRanges\":"
+                 "[{\"begin\":" (number-to-string (- begin 1)) ","
+                 "\"end\":" (number-to-string (- end 1)) "}],")
+              "")
+            "\"checkType\":\"interactive\"" "},"
             "\"contentEncoding\":\"base64\","
             "\"document\":{"
             "\"reference\":\"" (buffer-file-name) "\""
-            "}}"))
-  (message "Checking %s with target '%s' at %s."
-           (buffer-name)
-           (cdr (assoc target (acrolinx-get-available-targets)))
-           acrolinx-server-url))
+            "}}")))
 
-(defun acrolinx-handle-check-string-response (src-buffer)
-  (let* ((links (gethash "links" (acrolinx-get-json-from-response)))
-         (check-result-url (gethash "result" links))
-         (cancel-url (gethash "cancel" links)))
-    (acrolinx-request-check-result src-buffer check-result-url cancel-url 1)))
-
-(defun acrolinx-request-check-result (src-buffer
-                                      check-result-url cancel-url
-                                      attempt)
-  (if (> attempt acrolinx-request-check-result-max-tries)
-      (progn
-        (acrolinx-url-retrieve cancel-url
-                               (lambda (&rest dont-care) nil)
-                               nil
-                               "DELETE")
-        (error "No check result at %s after %d attempts"
-               check-result-url acrolinx-request-check-result-max-tries))
-    (acrolinx-url-retrieve
-     check-result-url
-     #'acrolinx-handle-check-result-response
-     (list src-buffer check-result-url cancel-url attempt))))
-
-(defun acrolinx-handle-check-result-response (src-buffer
-                                              check-result-url
-                                              cancel-url
-                                              attempt)
-  (let* ((json (acrolinx-get-json-from-response))
-         (data (gethash "data" json)))
-    (setq acrolinx-last-check-result-response json)
-    (if (null data)
-        (progn
-          ;; TODO use retryAfter value from server response
-          (sit-for acrolinx-request-check-result-interval)
-          (acrolinx-request-check-result src-buffer
-                                         check-result-url
-                                         cancel-url
-                                         (+ 1 attempt)))
-      (let* ((score (gethash "score" (gethash "quality" data)))
-             (scorecard-url (gethash "link"
-                                     (gethash "scorecard"
-                                              (gethash "reports" data))))
-             (issues (gethash "issues" data)))
-        (switch-to-buffer-other-window acrolinx-scorecard-buffer-name)
-        (setq acrolinx-src-buffer src-buffer)
-        (acrolinx-insert-button (format "Acrolinx Score: %d" score)
-                                (lambda ()
-                                  (browse-url scorecard-url))
-                                "Show scorecards in browser")
-        (insert " ")
-        (acrolinx-insert-button "[Copy URL]"
-                                (lambda ()
-                                  (kill-new scorecard-url))
-                                "Copy Scorecard URL to clipboard")
-        (insert "\n\n")
-        (acrolinx-render-issues issues)
-        (setq buffer-read-only t)
-        (goto-char (point-min))))))
+(defun acrolinx-handle-check-result (data)
+  (let ((src-buffer (current-buffer))
+        (score (gethash "score" (gethash "quality" data)))
+        (scorecard-url (gethash "link"
+                                (gethash "scorecard"
+                                         (gethash "reports" data))))
+        (issues (gethash "issues" data)))
+    (switch-to-buffer-other-window (acrolinx-prepare-scorecard-buffer))
+    (setq acrolinx-src-buffer src-buffer)
+    (acrolinx-insert-button (format "Acrolinx Score: %d" score)
+                            (lambda ()
+                              (browse-url scorecard-url))
+                            "Show scorecards in browser")
+    (insert " ")
+    (acrolinx-insert-button "[Copy URL]"
+                            (lambda ()
+                              (kill-new scorecard-url))
+                            "Copy Scorecard URL to clipboard")
+    (insert "\n\n")
+    (acrolinx-render-issues issues)
+    (setq buffer-read-only t)
+    (goto-char (point-min))))
 
 (defun acrolinx-get-guidance-html (issue)
-  (or (and (plusp (length (gethash "guidanceHtml" issue)))
+  (or (and (cl-plusp (length (gethash "guidanceHtml" issue)))
            (gethash "guidanceHtml" issue))
       (string-join
        (mapcar (lambda (sub) (gethash "displayNameHtml" sub))
@@ -538,7 +551,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
          (or
           (when-let ((pos-info (gethash "positionalInformation" issue))
                      (matches (gethash "matches" pos-info))
-                     (first-match (first matches)))
+                     (first-match (cl-first matches)))
             (gethash "originalBegin" first-match))
           0)))
     (setq issues (sort issues
@@ -549,7 +562,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
 (defun acrolinx-render-issue (issue)
   (let* ((all-matches (gethash "matches"
                                (gethash "positionalInformation" issue)))
-         (start-match (first all-matches))
+         (start-match (cl-first all-matches))
          (end-match (car (last all-matches)));can be the same as start-match
          (match-text (if (eq start-match end-match)
                          (gethash "originalPart" start-match)
@@ -587,12 +600,12 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
                      (insert suggestion)
                      (delete-char old-size)))))
         (insert " -> ")
-        (acrolinx-insert-button (first suggestions)
+        (acrolinx-insert-button (cl-first suggestions)
                                 (create-suggestion-button-action
-                                 (first suggestions))
+                                 (cl-first suggestions))
                                 "replace text")
         (insert "\n")
-        (dolist (suggestion (rest suggestions))
+        (dolist (suggestion (cl-rest suggestions))
           (insert spacer " -> ")
           (acrolinx-insert-button suggestion
                                   (create-suggestion-button-action suggestion)
@@ -606,7 +619,7 @@ a separate buffer (called `acrolinx-scorecard-buffer-name')."
       (if (zerop (length guidance))
           (insert (concat "  " issue-name))
         (let ((marker-overlay (make-overlay (point) (+ 1 (point))))
-              (guidance-overlay (make-overlay 1 2))) ; dummy positions
+              (guidance-overlay (make-overlay 1 2))) ; temp dummy positions
           (acrolinx-insert-button
            (concat "+ " issue-name)
            (lambda ()

@@ -269,10 +269,9 @@ setting for this could look like this:
       (let ((secret
              (plist-get
               (car
-               (auth-source-search :host (url-host
-                                          (url-generic-parse-url
-                                           acrolinx-server-url))
-                                   :user acrolinx-x-client))
+               (auth-source-search
+                :host (url-host (url-generic-parse-url acrolinx-server-url))
+                :user acrolinx-x-client))
               :secret)))
         (if (functionp secret)
             (funcall secret)

@@ -115,6 +115,10 @@ we call `auth-source-search' to get an API token using
   "Face used to highlight issues in the checked buffer text.")
 
 
+(defvar acrolinx-highlight-face 'acrolinx-highlight
+  "Face used to highlight a single issue in the checked buffer text.")
+
+
 (defvar acrolinx-request-check-result-max-tries 25
   "How many times to check if a job has finished before giving up.")
 
@@ -214,22 +218,29 @@ setting for this could look like this:
 
 (defface acrolinx-flag-match
   '((t (:inherit compilation-error)))
-  "Face for highlighting flags."
+  "Face for marking flags."
   :group 'acrolinx-faces)
 
 
-(defvar acrolinx-last-response-string "" "Only for debugging.")
+(defface acrolinx-highlight
+  '((t (:inherit compilation-warning)))
+  "Face for highlighting a single flag."
+  :group 'acrolinx-faces)
 
 
 (define-derived-mode acrolinx-scorecard-mode special-mode
   "Acrolinx Scorecard"
   "Major special mode for displaying Acrolinx scorecards."
   (defvar-local acrolinx-overlays '())
+  (defvar-local acrolinx-highlight-overlay nil)
   (defvar-local acrolinx-src-buffer nil)
   (add-hook 'kill-buffer-hook #'acrolinx-delete-overlays nil 'local)
   (add-hook 'kill-buffer-hook (lambda ()
                                 (setq acrolinx-last-response-string nil))
             nil 'local))
+
+
+(defvar acrolinx-last-response-string "" "Only for debugging.")
 
 
 ;;;- utilities ------------------------------------------------------------
@@ -338,11 +349,29 @@ setting for this could look like this:
                           (buffer-string))))
       (acrolinx-get-json-from-response))))
 
+(defun acrolinx-install-highlight (start end src-buffer)
+  (acrolinx-delete-highlight)
+  (setq acrolinx-highlight-overlay (make-overlay start end src-buffer))
+  (overlay-put acrolinx-highlight-overlay 'face acrolinx-highlight-face)
+  (overlay-put acrolinx-highlight-overlay 'priority 100)
+  (add-hook 'pre-command-hook 'acrolinx-delete-highlight-hook-function))
+
+(defun acrolinx-delete-highlight-hook-function ()
+  (unless (mouse-event-p last-command-event)
+    (when-let ((acrolinx-buffer (get-buffer acrolinx-scorecard-buffer-name)))
+      (with-current-buffer acrolinx-buffer
+        (acrolinx-delete-highlight)))))
+
+(defun acrolinx-delete-highlight ()
+  (when acrolinx-highlight-overlay
+    (delete-overlay acrolinx-highlight-overlay)
+    (setq acrolinx-highlight-overlay nil))
+  (remove-hook 'pre-command-hook 'acrolinx-delete-highlight-hook-function))
+
 (defun acrolinx-delete-overlays ()
-  "TODO doc"
-  (interactive)
   (mapc #'delete-overlay acrolinx-overlays)
-  (setq acrolinx-overlays '()))
+  (setq acrolinx-overlays '())
+  (acrolinx-delete-highlight))
 
 (defun acrolinx-string-from-html (html)
   (with-temp-buffer
@@ -571,6 +600,7 @@ Remembers the target in the buffer-local `acrolinx-target'.
          (match-start (gethash "originalBegin" start-match))
          (match-end (gethash "originalEnd" end-match))
          (spacer (make-string (length match-text) ? ))
+         (issue-buttons '())
          (suggestions (mapcar
                        (lambda (suggestion)
                          (gethash "surface" suggestion))
@@ -581,44 +611,48 @@ Remembers the target in the buffer-local `acrolinx-target'.
     (overlay-put overlay 'face acrolinx-flag-face)
     (push overlay acrolinx-overlays)
 
-    (acrolinx-insert-button match-text
-                            (lambda ()
-                              (with-current-buffer acrolinx-src-buffer
-                                (goto-char (overlay-start overlay))
-                                (mapc (lambda (w) (set-window-point w (point)))
-                                      (get-buffer-window-list nil nil t))))
-                            "jump to source location")
+    (push (acrolinx-insert-button
+           match-text
+           (lambda ()
+             (with-current-buffer acrolinx-src-buffer
+               (goto-char (overlay-start overlay))
+               (mapc (lambda (w) (set-window-point w (point)))
+                     (get-buffer-window-list nil nil t)))
+             (acrolinx-install-highlight (overlay-start overlay)
+                                         (overlay-end overlay)
+                                         acrolinx-src-buffer))
+           "jump to source location")
+          issue-buttons)
 
     (if (null suggestions)
         (insert "\n")
-      (let ((suggestion-buttons '()))
-        (cl-flet ((create-suggestion-button-action (suggestion)
-                    (lambda ()
-                      (let ((old-size (- (overlay-end overlay)
-                                         (overlay-start overlay))))
-                        (with-current-buffer acrolinx-src-buffer
-                          (goto-char (overlay-start overlay))
-                          (overlay-put overlay 'face nil)
-                          (insert suggestion)
-                          (delete-char old-size))
-                        (mapc #'delete-overlay suggestion-buttons)))))
-          (insert " -> ")
+      (cl-flet ((create-suggestion-button-action (suggestion)
+                 (lambda ()
+                   (let ((old-size (- (overlay-end overlay)
+                                      (overlay-start overlay))))
+                     (with-current-buffer acrolinx-src-buffer
+                       (goto-char (overlay-start overlay))
+                       (overlay-put overlay 'face nil)
+                       (insert suggestion)
+                       (delete-char old-size))
+                     (mapc #'delete-overlay issue-buttons)))))
+        (insert " -> ")
+        (push
+         (acrolinx-insert-button (cl-first suggestions)
+                                 (create-suggestion-button-action
+                                  (cl-first suggestions))
+                                 "replace text")
+         issue-buttons)
+        (insert "\n")
+        (dolist (suggestion (cl-rest suggestions))
+          (insert spacer " -> ")
           (push
-           (acrolinx-insert-button (cl-first suggestions)
-                                   (create-suggestion-button-action
-                                    (cl-first suggestions))
-                                   "replace text")
-           suggestion-buttons)
-          (insert "\n")
-          (dolist (suggestion (cl-rest suggestions))
-            (insert spacer " -> ")
-            (push
-             (acrolinx-insert-button
-              suggestion
-              (create-suggestion-button-action suggestion)
-              "replace text")
-             suggestion-buttons)
-            (insert "\n")))))
+           (acrolinx-insert-button
+            suggestion
+            (create-suggestion-button-action suggestion)
+            "replace text")
+           issue-buttons)
+          (insert "\n"))))
 
     (let ((issue-name (acrolinx-string-from-html
                        (gethash "displayNameHtml" issue)))

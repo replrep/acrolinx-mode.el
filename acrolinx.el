@@ -62,14 +62,12 @@
 
 ;; TODOs
 ;; - use customize
-;; - support Acrolinx Sign-In (https://github.com/acrolinx/platform-api#getting-an-access-token-with-acrolinx-sign-in)
 ;; - support terminology (see sidebar)
 ;; - support findability (see sidebar)
 ;; - option to put result in extra/dedicated frame
 ;; - support compile-next-error
 ;; - support custom field sending
 ;; - check for emacs version >= 25 (libxml support)
-;; - support client locale http header
 
 ;;; Code:
 
@@ -81,6 +79,13 @@
 ;;;- configuration --------------------------------------------------------
 (defvar acrolinx-server-url nil
   "URL of the Acrolinx Server.")
+
+
+(defvar acrolinx-client-locale nil
+  "Locale setting to use with the Acrolinx Server.
+
+This must be a IETF BCP 47 language tag. Will fall back to \"en\"
+if not set or not supported by the server.")
 
 
 (defvar acrolinx-x-client "SW50ZWdyYXRpb25EZXZlbG9wbWVudERlbW9Pbmx5"
@@ -294,6 +299,8 @@ setting for this could look like this:
   (append
    (list (cons "x-acrolinx-client"
                (concat acrolinx-x-client "; " acrolinx-version)))
+   (when acrolinx-client-locale
+     (list (cons "X-Acrolinx-Client-Locale" acrolinx-client-locale)))
    (unless omit-auth
      (list (cons "x-acrolinx-auth" (acrolinx-get-x-auth))))))
 

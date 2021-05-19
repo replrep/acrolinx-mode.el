@@ -339,7 +339,8 @@ setting for this could look like this:
                         nil t t)))
     (while (and (null finished)
                 (< (float-time) deadline))
-      (sleep-for 0.3))
+      (sleep-for 0.3)
+      (redisplay))
     (with-current-buffer response-buffer
       (unless finished
         (error "Query timeout, last response: '%s'"

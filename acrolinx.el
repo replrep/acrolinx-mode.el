@@ -74,7 +74,7 @@
 ;;; Code:
 
 
-(defvar acrolinx-version "1.0.0"
+(defvar acrolinx-version "1.1.0"
   "Version of acrolinx.el.")
 
 

@@ -237,7 +237,7 @@ setting for this could look like this:
   (let* ((sign-in-json
           (acrolinx-url-retrieve-sync
            (concat acrolinx-server-url "/api/v1/auth/sign-ins")
-           "POST" nil nil "invalid.access.token"))
+           "POST" nil nil t))
          (links (gethash "links" sign-in-json))
          (interactive-link (gethash "interactive" links))
          (poll-link (gethash "poll" links))
@@ -251,8 +251,7 @@ setting for this could look like this:
     (setq acrolinx-api-token nil)
     (while (and (null acrolinx-api-token)
                 (< (float-time) deadline))
-      (let* ((poll (acrolinx-url-retrieve-sync
-                    poll-link "GET" nil nil "invalid.access.token"))
+      (let* ((poll (acrolinx-url-retrieve-sync poll-link "GET" nil nil t))
              (data (gethash "data" poll))
              (progress (gethash "progress" poll)))
         (if (and data (gethash "accessToken" data))
@@ -281,11 +280,12 @@ setting for this could look like this:
       (acrolinx-request-access-token)
       (error "No authentication token found")))
 
-(defun acrolinx-get-http-headers (&optional access-token-override)
-  (list (cons "x-acrolinx-client"
-              (concat acrolinx-x-client "; " acrolinx-version))
-        (cons "x-acrolinx-auth" (or access-token-override
-                                    (acrolinx-get-x-auth)))))
+(defun acrolinx-get-http-headers (&optional omit-auth)
+  (append
+   (list (cons "x-acrolinx-client"
+               (concat acrolinx-x-client "; " acrolinx-version)))
+   (unless omit-auth
+     (list (cons "x-acrolinx-auth" (acrolinx-get-x-auth))))))
 
 (defun acrolinx-get-json-from-response ()
   (goto-char (point-min))

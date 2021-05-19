@@ -108,10 +108,6 @@ we call `auth-source-search' to get an API token using
 `acrolinx-server-url' as :host parameter.") ; TODO add sign-in docs
 
 
-(defvar acrolinx-custom-fields nil
-  "List of custom fields for the current user.")
-
-
 (defvar acrolinx-timeout 30
   "Timeout in seconds for communication with the Acrolinx server.")
 
@@ -271,10 +267,7 @@ setting for this could look like this:
              (data (gethash "data" poll))
              (progress (gethash "progress" poll)))
         (if (and data (gethash "accessToken" data))
-            (setq acrolinx-api-token (gethash "accessToken" data)
-                  acrolinx-custom-fields (gethash "customFields"
-                                                  (or (gethash "user" data)
-                                                      (make-hash-table))))
+            (setq acrolinx-api-token (gethash "accessToken" data))
           (sleep-for (or (gethash "retryAfter" progress) 1)))))
     (unless acrolinx-api-token
       (error "Timeout retrieving access token"))

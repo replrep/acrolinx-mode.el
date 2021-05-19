@@ -297,12 +297,12 @@ setting for this could look like this:
 
 (defun acrolinx-get-http-headers (&optional omit-auth)
   (append
-   (list (cons "x-acrolinx-client"
+   (list (cons "X-Acrolinx-Client"
                (concat acrolinx-x-client "; " acrolinx-version)))
    (when acrolinx-client-locale
      (list (cons "X-Acrolinx-Client-Locale" acrolinx-client-locale)))
    (unless omit-auth
-     (list (cons "x-acrolinx-auth" (acrolinx-get-x-auth))))))
+     (list (cons "X-Acrolinx-Auth" (acrolinx-get-x-auth))))))
 
 (defun acrolinx-get-json-from-response ()
   (goto-char (point-min))

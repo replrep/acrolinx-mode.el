@@ -247,10 +247,17 @@ setting for this could look like this:
 
 
 ;;;- utilities ------------------------------------------------------------
+(defun acrolinx-make-url (path)
+  (unless acrolinx-server-url
+    (error
+     "Please put the URL of your Acrolinx server into `acrolinx-server-url'"))
+  (concat acrolinx-server-url
+          path))
+
 (defun acrolinx-request-access-token ()
   (let* ((sign-in-json
           (acrolinx-url-retrieve-sync
-           (concat acrolinx-server-url "/api/v1/auth/sign-ins")
+           (acrolinx-make-url "/api/v1/auth/sign-ins")
            "POST" nil nil t))
          (links (gethash "links" sign-in-json))
          (interactive-link (gethash "interactive" links))
@@ -404,7 +411,7 @@ setting for this could look like this:
 
 (defun acrolinx-get-targets-from-capabilities ()
   (let* ((json (acrolinx-url-retrieve-sync
-                (concat acrolinx-server-url "/api/v1/checking/capabilities")))
+                (acrolinx-make-url "/api/v1/checking/capabilities")))
          (targets (gethash "guidanceProfiles" (gethash "data" json))))
     (when (null targets)
       (error "No targets found in capability response"))
@@ -513,7 +520,7 @@ Remembers the target in the buffer-local `acrolinx-target'.
            (cdr (assoc target (acrolinx-get-available-targets)))
            acrolinx-server-url)
   (acrolinx-url-retrieve-sync
-   (concat acrolinx-server-url "/api/v1/checking/checks")
+   (acrolinx-make-url "/api/v1/checking/checks")
    "POST"
    '(("content-type" . "application/json"))
    (concat "{\"content\":\""

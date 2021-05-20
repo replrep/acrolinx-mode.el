@@ -40,16 +40,16 @@
 ;;      (autoload 'acrolinx-check "acrolinx"
 ;;                "Check buffer contents with Acrolinx" t)
 ;; - Issue M-x `acrolinx-check' in a buffer with some text you want to check
-;;   (if there is an active region only the region content will be checked)
+;;   (if there is an active region only the region content will be checked).
 ;;   You will be prompted for the target to use for the check. Your
 ;;   choice will be remembered for the following checks (call
 ;;   `acrolinx-check' with a prefix arg to force a new target prompt)
 ;; - The check results/flags will pop up in a dedicated buffer.
 ;;   - Click on the first line (Acrolinx Score) to browse the
 ;;     detailed scorecards (probably in an external browser).
-;;   - Click on a problem word (left of the arrow) to set the point
+;;   - Click on a problem word (left of an arrow) to set the point
 ;;     in the source buffer.
-;;   - Click on a suggestion (right of the arrow) to put the suggestion
+;;   - Click on a suggestion (right of an arrow) to put the suggestion
 ;;     in the source buffer.
 ;;   - Click on the lines starting with '+' to expand guidance.
 ;;   - Type 'g' to refresh (check same buffer again), 'q' to quit.
@@ -85,7 +85,9 @@ if not set or not supported by the server.")
 When using the auth-source library to find an API token, this
 value is used for the ':user' search key, along with the
 host portion of `acrolinx-server-url'. If you do not use API tokens
-or do not use the auth-source library, you do not need to set this.")
+or do not use the auth-source library, you do not need to set this.
+`acrolinx-auth-source-user' is initialized with `user-login-name'
+on startup.")
 
 
 (defvar acrolinx-api-token nil

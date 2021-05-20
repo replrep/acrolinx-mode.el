@@ -35,11 +35,6 @@
 ;; Getting started:
 
 ;; - Set `acrolinx-server-url' to the url of your Acrolinx server.
-;; - Get an API token from your Acrolinx server (see
-;;   https://github.com/acrolinx/platform-api#getting-an-api-token)
-;; - Put the API token into `acrolinx-api-token' or use
-;;   emacs' auth-source library and put the token e.g. into
-;;   ~/.netrc (possibly encrypted).
 ;; - Load and evaluate acrolinx.el. Or put acrolinx.el on your
 ;;   `load-path' and use
 ;;      (autoload 'acrolinx-check "acrolinx"
@@ -62,10 +57,7 @@
 
 ;; TODOs
 ;; - use customize
-;; - support terminology (see sidebar)
-;; - support findability (see sidebar)
 ;; - option to put result in extra/dedicated frame
-;; - support compile-next-error
 ;; - support custom field sending
 
 ;;; Code:
@@ -87,28 +79,38 @@ This must be a IETF BCP 47 language tag. Will fall back to \"en\"
 if not set or not supported by the server.")
 
 
-(defvar acrolinx-x-client "SW50ZWdyYXRpb25EZXZlbG9wbWVudERlbW9Pbmx5"
-  "Client signature for talking to the Acrolinx Server.
+(defvar acrolinx-auth-source-user (user-login-name)
+  "Username used to find an API token with the auth-source library.
 
-Until acrolinx.el gets an official integration signature we'll use
-the development value taken from https://github.com/acrolinx/platform-api#signature")
+When using the auth-source library to find an API token, this
+value is used for the ':user' search key, along with the
+host portion of `acrolinx-server-url'. If you do not use API tokens
+or do not use the auth-source library, you do not need to set this.")
 
 
 (defvar acrolinx-api-token nil
   "API token for talking to the Acrolinx Server.
 
-See https://github.com/acrolinx/platform-api#getting-an-api-token on
-how to get an API token.
+If you use the browser-based sign-in process you do not need to set this.
 
-If you do not want to set this token from
-Lisp source code you can set this variable to nil. In this case
-we call `auth-source-search' to get an API token using
-`acrolinx-x-client' as :user and the host portion of
-`acrolinx-server-url' as :host parameter.") ; TODO add sign-in docs
+If you want to use an API token, please see
+https://github.com/acrolinx/platform-api#getting-an-api-token on
+how to get one.
+
+If you do not want to set the token from Lisp source code you
+can set this variable to nil. In this case we call
+`auth-source-search' to get an API token using
+`acrolinx-auth-source-user' as :user and the host portion of
+`acrolinx-server-url' as :host parameter. If `auth-source-search'
+doesn't find an API token we fall back to browser sign-in.")
 
 
 (defvar acrolinx-timeout 30
   "Timeout in seconds for communication with the Acrolinx server.")
+
+
+(defvar acrolinx-request-check-result-max-tries 25
+  "How many times to check if a job has finished before giving up.")
 
 
 (defvar acrolinx-flag-face 'acrolinx-flag-match
@@ -117,14 +119,6 @@ we call `auth-source-search' to get an API token using
 
 (defvar acrolinx-highlight-face 'acrolinx-highlight
   "Face used to highlight a single issue in the checked buffer text.")
-
-
-(defvar acrolinx-request-check-result-max-tries 25
-  "How many times to check if a job has finished before giving up.")
-
-
-(defvar acrolinx-scorecard-buffer-name "*Acrolinx Scorecard*"
-  "Name to use for the buffer containing scorecard results.")
 
 
 (defvar acrolinx-initial-default-target nil
@@ -168,6 +162,18 @@ target name.")
 
 
 ;;;- internals ------------------------------------------------------------
+(defvar acrolinx-x-client "SW50ZWdyYXRpb25EZXZlbG9wbWVudERlbW9Pbmx5"
+  "Client signature for talking to the Acrolinx Server.
+
+Until acrolinx.el gets an official integration signature we'll use
+the development value taken from
+https://github.com/acrolinx/platform-api#signature")
+
+
+(defvar acrolinx-scorecard-buffer-name "*Acrolinx Scorecard*"
+  "Name to use for the buffer containing scorecard results.")
+
+
 (defvar acrolinx-available-targets '()
   "Cache for the available targets.
 
@@ -289,13 +295,12 @@ setting for this could look like this:
               (car
                (auth-source-search
                 :host (url-host (url-generic-parse-url acrolinx-server-url))
-                :user acrolinx-x-client))
+                :user acrolinx-auth-source-user))
               :secret)))
         (if (functionp secret)
             (funcall secret)
           secret))
-      (acrolinx-request-access-token)
-      (error "No authentication token found")))
+      (acrolinx-request-access-token)))
 
 (defun acrolinx-get-http-headers (&optional omit-auth)
   (append

@@ -159,7 +159,7 @@ target name.")
 (require 'browse-url)
 (require 'compile)
 
-(when (version< emacs-version "24.1")
+(when (version< emacs-version "25.2")
   (error "acrolinx.el needs at least emacs version 25.2"))
 
 

@@ -67,7 +67,6 @@
 ;; - option to put result in extra/dedicated frame
 ;; - support compile-next-error
 ;; - support custom field sending
-;; - check for emacs version >= 25 (libxml support)
 
 ;;; Code:
 
@@ -163,6 +162,9 @@ target name.")
 (require 'subr-x)
 (require 'browse-url)
 (require 'compile)
+
+(when (version< emacs-version "24.1")
+  (error "acrolinx.el needs at least emacs version 25.2"))
 
 
 ;;;- internals ------------------------------------------------------------
